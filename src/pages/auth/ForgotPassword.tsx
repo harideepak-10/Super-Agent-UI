@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { API_URL } from "@/lib/config";
 import { errMsg } from "@/lib/utils";
-import { Button, Field, Input } from "@/components/ui";
+import { Button, Field, Input, PasswordInput } from "@/components/ui";
 import { AuthShell } from "./AuthShell";
 
 export function ForgotPassword() {
@@ -47,7 +47,7 @@ export function ResetPassword() {
     <AuthShell title="Choose a new password">
       <form onSubmit={submit} className="space-y-4">
         {!params.get("token") && <Field label="Reset token"><Input required value={token} onChange={(e) => setToken(e.target.value)} /></Field>}
-        <Field label="New password"><Input type="password" autoFocus required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
+        <Field label="New password"><PasswordInput autoFocus required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
         {error && <p className="text-sm text-err">{error}</p>}
         <Button variant="primary" className="w-full" loading={loading}>Update password</Button>
       </form>

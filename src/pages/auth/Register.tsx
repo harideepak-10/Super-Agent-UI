@@ -4,7 +4,7 @@ import axios from "axios";
 import { API_URL } from "@/lib/config";
 import { useAuth } from "@/store/auth";
 import { errMsg } from "@/lib/utils";
-import { Button, Field, Input } from "@/components/ui";
+import { Button, Field, Input, PasswordInput } from "@/components/ui";
 import { AuthShell } from "./AuthShell";
 
 export default function Register() {
@@ -29,7 +29,7 @@ export default function Register() {
       <form onSubmit={submit} className="space-y-4">
         <Field label="Full name"><Input autoFocus required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
         <Field label="Email"><Input type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
-        <Field label="Password" hint="At least 8 characters, not too common."><Input type="password" required minLength={8} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></Field>
+        <Field label="Password" hint="At least 8 characters, not too common."><PasswordInput required minLength={8} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></Field>
         {error && <p className="text-sm text-err">{error}</p>}
         <Button variant="primary" className="w-full" loading={loading}>Create account</Button>
       </form>

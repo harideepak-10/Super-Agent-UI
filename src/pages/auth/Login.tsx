@@ -4,7 +4,7 @@ import axios from "axios";
 import { API_URL } from "@/lib/config";
 import { useAuth } from "@/store/auth";
 import { errMsg } from "@/lib/utils";
-import { Button, Field, Input } from "@/components/ui";
+import { Button, Field, Input, PasswordInput } from "@/components/ui";
 import { AuthShell } from "./AuthShell";
 import { GoogleButton } from "./GoogleButton";
 
@@ -37,7 +37,7 @@ export default function Login() {
       <GoogleButton onToken={google} />
       <form onSubmit={submit} className="space-y-4">
         <Field label="Email"><Input type="email" autoFocus required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" /></Field>
-        <Field label="Password"><Input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" /></Field>
+        <Field label="Password"><PasswordInput required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" /></Field>
         <div className="flex justify-end"><Link to="/forgot-password" className="text-xs text-muted hover:text-fg">Forgot password?</Link></div>
         {error && <p className="text-sm text-err">{error}</p>}
         <Button variant="primary" className="w-full" loading={loading}>Sign in</Button>

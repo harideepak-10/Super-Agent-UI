@@ -5,7 +5,7 @@ import { Copy, ExternalLink, Mail, HardDrive, Calendar, Slack, Send, MessageCirc
 import { api, del, get, patch, post } from "@/api/client";
 import { asList, cn, errMsg, timeAgo } from "@/lib/utils";
 import { useAuth } from "@/store/auth";
-import { Badge, Button, Card, Field, Input, Loading, Modal, PageHeader, Select, StatusBadge, Table, Td, Toggle } from "@/components/ui";
+import { Badge, Button, Card, Field, Input, Loading, PasswordInput, Modal, PageHeader, Select, StatusBadge, Table, Td, Toggle } from "@/components/ui";
 import { Avatar } from "@/components/Layout";
 import { toast } from "@/components/toast";
 
@@ -66,8 +66,8 @@ export function ProfileSettings() {
       </Card>
       <Card className="space-y-4 p-5">
         <p className="text-sm font-medium">Change password</p>
-        <Field label="Current password"><Input type="password" value={pw.current_password} onChange={(e) => setPw({ ...pw, current_password: e.target.value })} /></Field>
-        <Field label="New password"><Input type="password" value={pw.new_password} onChange={(e) => setPw({ ...pw, new_password: e.target.value })} /></Field>
+        <Field label="Current password"><PasswordInput value={pw.current_password} onChange={(e) => setPw({ ...pw, current_password: e.target.value })} /></Field>
+        <Field label="New password"><PasswordInput value={pw.new_password} onChange={(e) => setPw({ ...pw, new_password: e.target.value })} /></Field>
         <Button disabled={!pw.current_password || pw.new_password.length < 8} loading={changePw.isPending} onClick={() => changePw.mutate()}>Update password</Button>
       </Card>
     </div>
