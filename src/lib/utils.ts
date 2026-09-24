@@ -36,6 +36,11 @@ export const uuid = () =>
   });
 
 export function errMsg(e: any): string {
+  // No response at all = the request never reached Django (server down, wrong URL, CORS, or blocked mixed content)
+  if (e?.isAxiosError && !e.response) {
+    const base = (import.meta.env.VITE_API_URL as string) || "http://localhost:8000";
+    return `Can't reach the server at ${base}. Check that the backend is running and VITE_API_URL in .env is correct.`;
+  }
   const d = e?.response?.data;
   if (!d) return e?.message || "Something went wrong";
   if (typeof d === "string") return d.slice(0, 200);

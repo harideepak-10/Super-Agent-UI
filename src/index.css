@@ -61,3 +61,14 @@ body {
 
 @keyframes pulse-dot { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
 .pulse-dot { animation: pulse-dot 1.4s ease-in-out infinite; }
+
+/* ── splash ── */
+@keyframes splash-pop { 0% { transform: scale(.6); opacity: 0 } 60% { transform: scale(1.06); opacity: 1 } 100% { transform: scale(1) } }
+@keyframes splash-ring { 0% { transform: scale(.85); opacity: .9 } 100% { transform: scale(1.9); opacity: 0 } }
+@keyframes splash-fade { from { transform: translateY(8px); opacity: 0 } to { transform: none; opacity: 1 } }
+@keyframes splash-bar { 0% { transform: translateX(-100%) } 100% { transform: translateX(300%) } }
+.splash-logo { animation: splash-pop .7s cubic-bezier(.2,.9,.3,1.2) both; }
+.splash-ring { animation: splash-ring 1.8s ease-out infinite; }
+.splash-fade { animation: splash-fade .6s ease-out .25s both; }
+.splash-bar { animation: splash-bar 1.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .splash-logo, .splash-ring, .splash-fade, .splash-bar { animation: none; } }

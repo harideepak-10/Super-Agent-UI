@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { API_URL } from "@/lib/config";
+import { useServer } from "@/store/server";
 import { useAuth } from "@/store/auth";
 import { errMsg } from "@/lib/utils";
 import { Button, Field, Input, PasswordInput } from "@/components/ui";
@@ -14,6 +15,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const setSession = useAuth((s) => s.setSession);
+  const server = useServer((s) => s.status);
   const nav = useNavigate();
   const from = (useLocation().state as any)?.from ?? "/";
 
@@ -34,6 +36,11 @@ export default function Login() {
 
   return (
     <AuthShell title="Welcome back" subtitle="Sign in to your workspace" footer={<>New here? <Link to="/register" className="text-accent hover:underline">Create an account</Link></>}>
+      {server === "down" && (
+        <div className="mb-5 rounded-lg border border-warn/30 bg-warn/10 px-3 py-2.5 text-xs text-warn">
+          Can't reach the backend at <span className="font-mono">{API_URL}</span>. Start Django or set <span className="font-mono">VITE_API_URL</span> in <span className="font-mono">.env</span>.
+        </div>
+      )}
       <GoogleButton onToken={google} />
       <form onSubmit={submit} className="space-y-4">
         <Field label="Email"><Input type="email" autoFocus required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" /></Field>

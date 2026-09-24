@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "@/store/auth";
 import { useUI } from "@/store/ui";
 import { Layout } from "@/components/Layout";
 import { Toaster } from "@/components/toast";
+import { Splash } from "@/components/Splash";
 import Login from "@/pages/auth/Login";
 import Register from "@/pages/auth/Register";
 import { ForgotPassword, ResetPassword } from "@/pages/auth/ForgotPassword";
@@ -33,6 +34,8 @@ function PublicOnly({ children }: { children: JSX.Element }) {
 export default function App() {
   const theme = useUI((s) => s.theme);
   useEffect(() => { document.documentElement.classList.toggle("dark", theme === "dark"); }, [theme]);
+  const [booted, setBooted] = useState(false);
+  const done = useCallback(() => setBooted(true), []);
 
   return (
     <>
@@ -67,6 +70,7 @@ export default function App() {
         </Route>
       </Routes>
       <Toaster />
+      {!booted && <Splash onDone={done} />}
     </>
   );
 }
