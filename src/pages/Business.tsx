@@ -105,9 +105,24 @@ function Welcome() {
           <span className="flex items-center gap-1.5"><Rocket className="size-4 text-[#7aaaff]" /> Recommended agents</span>
         </div>
       </div>
-      {me.canManage
+      {me.isLoading ? <Loading /> : !me.isMember
         ? <BusinessWizard framed onDone={() => setParams({ tab: "data" })} />
-        : <Card><Empty icon={<UploadCloud className="size-8" />} title="No business records yet" text="Ask your Admin or a Manager to set up the Business Hub." /></Card>}
+        : (
+          <Card className="p-6 sm:p-8">
+            <div className="flex flex-col items-center gap-3 text-center">
+              <div className="grid size-12 place-items-center rounded-2xl bg-warn/10 text-warn"><UploadCloud className="size-6" /></div>
+              <p className="text-lg font-semibold">Only the Admin or a Manager can upload business records</p>
+              <p className="max-w-xl text-sm text-muted">
+                You're signed in as <span className="font-semibold text-fg">{me.header?.email ?? "this account"}</span> with the <span className="font-semibold text-fg">Member</span> role in your current workspace.
+                If this is your own business, you're probably working inside a workspace you were invited to — an accepted invite takes priority over your own workspace.
+              </p>
+              <div className="mt-2 flex flex-wrap justify-center gap-2">
+                <Link to="/settings/team"><Button variant="primary">Check your team & role</Button></Link>
+              </div>
+              <p className="text-xs text-muted">Ask the Admin to make you a Manager, or sign in with the account that owns the workspace.</p>
+            </div>
+          </Card>
+        )}
     </div>
   );
 }

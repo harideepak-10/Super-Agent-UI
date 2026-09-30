@@ -51,7 +51,7 @@ export function Splash({ onDone }: { onDone: () => void }) {
     window.addEventListener("resize", resize);
 
     const N = w < 640 ? 46 : 78;
-    const R = () => Math.min(w * 0.42, h * 0.34, 260);
+    const R = () => Math.min(w * 0.42, Math.max(120, (h - 240) / 2) * 1.25, 260);
     const ps = Array.from({ length: N }, (_, i) => {
       const a = (i / N) * Math.PI * 2 + Math.random() * 0.4;
       const far = Math.max(w, h) * (0.7 + Math.random() * 0.5);
@@ -122,8 +122,13 @@ export function Splash({ onDone }: { onDone: () => void }) {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,#0a1f4d_0%,#020a1f_45%,#00040f_75%)]" />
       <canvas ref={canvas} className="absolute inset-0 h-full w-full" />
 
-      <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ ["--r" as any]: "min(29vw, 190px, 26vh)" }}>
-        <div ref={logoRef} className="relative grid place-items-center" style={{ marginTop: "calc(var(--r) * -0.7)" }}>
+      {/*
+        Layout: the logo sits at --cy (a bit above the middle), agents orbit it at --r,
+        and the wordmark sits just below the orbit. --r shrinks with the window
+        height so the whole composition always fits, even on short laptop screens.
+      */}
+      <div className="absolute inset-0" style={{ ["--r" as any]: "min(29vw, 190px, calc((100vh - 240px) / 2))", ["--cy" as any]: "calc(50% - 48px)" }}>
+        <div ref={logoRef} className="absolute left-1/2 grid -translate-x-1/2 -translate-y-1/2 place-items-center" style={{ top: "var(--cy)" }}>
           {/* shockwave */}
           <span className="intro-wave absolute size-24 rounded-full border-2 border-[#7aaaff]" />
           <span className="intro-wave absolute size-24 rounded-full border border-[#4ecdc4]" style={{ animationDelay: "1.05s" }} />
@@ -148,12 +153,14 @@ export function Splash({ onDone }: { onDone: () => void }) {
           </div>
         </div>
 
-        <h1 className="relative flex text-4xl font-extrabold tracking-tight sm:text-6xl" style={{ marginTop: "calc(var(--r) + 0.5rem)" }} aria-label={word}>
-          {word.split("").map((ch, i) => (
-            <span key={i} className={cn("intro-letter", i >= 5 && "text-[#7aaaff]")} style={{ animationDelay: `${0.95 + i * 0.045}s` }}>{ch}</span>
-          ))}
-        </h1>
-        <p className="intro-tag relative mt-3 text-[11px] font-medium tracking-[0.35em] text-white/70 sm:text-xs">YOUR AI WORKFORCE, ORCHESTRATED</p>
+        <div className="absolute inset-x-0 flex flex-col items-center px-4 text-center" style={{ top: "calc(var(--cy) + var(--r) + 42px)" }}>
+          <h1 className="flex text-4xl font-extrabold tracking-tight sm:text-6xl" aria-label={word}>
+            {word.split("").map((ch, i) => (
+              <span key={i} className={cn("intro-letter", i >= 5 && "text-[#7aaaff]")} style={{ animationDelay: `${0.95 + i * 0.045}s` }}>{ch}</span>
+            ))}
+          </h1>
+          <p className="intro-tag mt-3 text-[11px] font-medium tracking-[0.35em] text-white/70 sm:text-xs">YOUR AI WORKFORCE, ORCHESTRATED</p>
+        </div>
       </div>
 
       <div className="absolute inset-x-0 bottom-0 h-[3px] bg-white/5"><div className="intro-bar h-full bg-gradient-to-r from-[#1254d4] via-[#5a9aff] to-[#4ecdc4]" /></div>

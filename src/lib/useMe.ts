@@ -11,14 +11,19 @@ export const ROLE_LABEL: Record<Role, string> = { owner: "Admin", manager: "Mana
 export function useMe() {
   const q = useQuery({ queryKey: ["settings-summary"], queryFn: () => get("/profile/settings-summary/"), staleTime: 60_000 });
   const header = q.data?.header ?? {};
-  const role: Role = (header.role as Role) ?? "member";
+  // Until the role is known (loading, or the request failed) we don't hide
+  // anything — the backend still enforces permissions and returns a clear 403.
+  const known = q.isSuccess && !!header.role;
+  const role: Role = known ? (header.role as Role) : "owner";
   return {
     ...q,
     header,
     role,
-    roleLabel: header.role_label ?? ROLE_LABEL[role],
+    roleKnown: known,
+    roleLabel: known ? header.role_label ?? ROLE_LABEL[role] : "",
     isAdmin: role === "owner",
     isManager: role === "manager",
     canManage: role === "owner" || role === "manager",
+    isMember: known && role === "member",
   };
 }

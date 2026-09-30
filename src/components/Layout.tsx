@@ -113,7 +113,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <Avatar name={user?.name || user?.email} src={user?.avatar_url} />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold">{user?.name || "You"}</p>
-            <p className="truncate text-[11px] text-muted">{me.roleLabel}{me.header?.plan_label ? ` · ${me.header.plan_label}` : ""}</p>
+            <p className="truncate text-[11px] text-muted">{[me.roleLabel, me.header?.plan_label].filter(Boolean).join(" · ") || user?.email}</p>
           </div>
           <button onClick={logout} title="Log out" className="text-muted hover:text-err cursor-pointer"><LogOut className="size-4" /></button>
         </div>
