@@ -19,7 +19,7 @@ export default function Register() {
     try {
       const { data } = await axios.post(`${API_URL}/api/v1/auth/google/`, { id_token });
       setSession(data.user, data.tokens.access, data.tokens.refresh);
-      nav("/agents/library", { replace: true });
+      nav("/setup/business", { replace: true });
     } catch (err) { setError(errMsg(err)); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -29,7 +29,7 @@ export default function Register() {
     try {
       const { data } = await axios.post(`${API_URL}/api/v1/auth/register/`, form);
       setSession(data.user, data.tokens.access, data.tokens.refresh);
-      nav("/agents/library", { replace: true });
+      nav("/setup/business", { replace: true });
     } catch (err) { setError(errMsg(err)); }
     finally { setLoading(false); }
   };

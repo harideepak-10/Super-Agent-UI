@@ -15,6 +15,7 @@ import Onboarding, { hasOnboarded } from "@/pages/auth/Onboarding";
 import { NewTask, TasksList } from "@/pages/Tasks";
 import CRM from "@/pages/CRM";
 import BusinessHub, { BusinessPage } from "@/pages/Business";
+import BusinessSetup from "@/pages/BusinessSetup";
 import { AgentDetail, AgentLibrary, AgentsList } from "@/pages/Agents";
 import { WorkflowEditor, WorkflowsList } from "@/pages/Workflows";
 import { CustomerDetail, CustomersList } from "@/pages/Customers";
@@ -49,6 +50,7 @@ export default function App() {
         <Route path="/register" element={<PublicOnly><Register /></PublicOnly>} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/setup/business" element={<RequireAuth><BusinessSetup /></RequireAuth>} />
         <Route element={<RequireAuth><Layout /></RequireAuth>}>
           <Route index element={<Home />} />
           <Route path="chat" element={<Chat />} />

@@ -10,6 +10,7 @@ import { useAuth } from "@/store/auth";
 import { useUI } from "@/store/ui";
 import { useLiveSocket } from "@/lib/useLiveSocket";
 import { useMe } from "@/lib/useMe";
+import { bizPrompt } from "./TrackRecords";
 import { asList, cn, timeAgo } from "@/lib/utils";
 import { CommandPalette } from "./CommandPalette";
 import { toast } from "./toast";
@@ -217,9 +218,28 @@ function Notifications() {
   );
 }
 
+/**
+ * Sends Admins/Managers of a workspace with no business records to the
+ * "Do you have any business records?" question once (until they skip or upload).
+ */
+function useBusinessPrompt() {
+  const me = useMe();
+  const user = useAuth((s) => s.user);
+  const nav = useNavigate();
+  const loc = useLocation();
+  const answered = !!bizPrompt.get(user?.id);
+  const prof = useQuery({ queryKey: ["business", "profile"], queryFn: () => get("/business/profile/"), enabled: me.isSuccess && me.canManage && !answered, retry: false });
+  useEffect(() => {
+    if (answered || !me.canManage || !prof.isSuccess || loc.pathname.startsWith("/business")) return;
+    if (!prof.data?.id) nav("/setup/business", { replace: true });
+    else bizPrompt.set(user?.id, "done");
+  }, [answered, me.canManage, prof.isSuccess, prof.data, loc.pathname, nav, user?.id]);
+}
+
 export function Layout() {
   const { theme, toggleTheme, sidebarOpen, setSidebar, setSearch } = useUI();
   const loc = useLocation();
+  useBusinessPrompt();
   const fullBleed = loc.pathname.startsWith("/chat");
 
   useEffect(() => {

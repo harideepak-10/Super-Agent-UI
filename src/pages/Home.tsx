@@ -2,6 +2,10 @@ import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, CheckCircle2, ShieldAlert, Bot, Wallet, ListTodo, X, Zap, BarChart3, CalendarClock } from "lucide-react";
 import { KpiCard } from "@/components/Widgets";
+import { bizPrompt } from "@/components/TrackRecords";
+import { useMe } from "@/lib/useMe";
+import { useAuth } from "@/store/auth";
+import { useState } from "react";
 import { get, post } from "@/api/client";
 import { asList, cn, errMsg } from "@/lib/utils";
 import { Card, ErrorBox, Loading, StatusBadge } from "@/components/ui";
@@ -78,6 +82,7 @@ export default function Home() {
         </div>
       )}
 
+      <TrackRecordsBanner />
       <Snapshots />
 
       <div className="mt-8 grid gap-6 lg:grid-cols-5">
@@ -176,6 +181,31 @@ function Snapshots() {
           </Card>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Reminder for owners who skipped the business-records question. */
+function TrackRecordsBanner() {
+  const me = useMe();
+  const user = useAuth((s) => s.user);
+  const [state, setState] = useState(() => bizPrompt.get(user?.id));
+  const prof = useQuery({ queryKey: ["business", "profile"], queryFn: () => get("/business/profile/"), enabled: me.canManage && state === "skipped", retry: false });
+  if (!me.canManage || state !== "skipped" || !prof.isSuccess || prof.data?.id) return null;
+  return (
+    <div className="relative mt-8 overflow-hidden rounded-2xl bg-navy p-5 text-white shadow-card sm:p-6">
+      <div className="pointer-events-none absolute -top-16 -right-10 size-56 rounded-full bg-[#1a6fff]/40 blur-3xl" />
+      <div className="relative flex flex-wrap items-center gap-4">
+        <div className="bg-brand grid size-12 shrink-0 place-items-center rounded-xl"><BarChart3 className="size-6" /></div>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold">Do you have business records to track?</p>
+          <p className="text-sm text-white/70">Upload your customers, sales, orders or invoices and get live dashboards in minutes.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link to="/setup/business" className="bg-brand inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold hover:brightness-110">Upload records <ArrowRight className="size-4" /></Link>
+          <button onClick={() => { bizPrompt.set(user?.id, "dismissed"); setState("dismissed"); }} className="grid size-10 place-items-center rounded-xl text-white/60 hover:bg-white/10 hover:text-white cursor-pointer" aria-label="Don't show again" title="Don't show again"><X className="size-4" /></button>
+        </div>
+      </div>
     </div>
   );
 }

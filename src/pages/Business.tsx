@@ -1,17 +1,18 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft, ArrowRight, BarChart3, Boxes, Briefcase, Check, ChevronDown, CircleCheck, Database, Download, FileSpreadsheet,
-  FolderKanban, Package, Receipt, RefreshCw, ShoppingCart, Sparkles, Trash2, UploadCloud, Users, Wallet, Rocket,
+  FolderKanban, Package, ShoppingCart, Sparkles, Trash2, UploadCloud, Users, Wallet, Rocket,
 } from "lucide-react";
 import { api, del, get, patch, post } from "@/api/client";
 import { asList, cn, errMsg, fmtDate, money, num, timeAgo } from "@/lib/utils";
 import { useMe } from "@/lib/useMe";
-import { Badge, Button, Card, Empty, ErrorBox, Field, Input, Loading, PageHeader, Select, Tabs, Textarea, Toggle } from "@/components/ui";
+import { Badge, Button, Card, Empty, ErrorBox, Field, Input, Loading, PageHeader, Select, Tabs, Textarea } from "@/components/ui";
 import { KpiCard, WidgetCard, type Widget } from "@/components/Widgets";
 import { AgentIcon } from "@/components/AgentIcon";
 import { toast } from "@/components/toast";
+import { ENTITY_ICON, RecordTypePicker, RecordUploader } from "@/components/TrackRecords";
 
 const PERIODS = [
   ["all", "All time"], ["today", "Today"], ["this_week", "This week"], ["30d", "Last 30 days"], ["this_month", "This month"],
@@ -21,10 +22,6 @@ const PERIODS = [
 const PAGE_ICON: Record<string, any> = {
   sales_dashboard: BarChart3, customer_management: Users, order_management: ShoppingCart, product_catalog: Package,
   inventory_dashboard: Boxes, employee_management: Briefcase, project_tracking: FolderKanban, finance_overview: Wallet,
-};
-const ENTITY_ICON: Record<string, any> = {
-  customers: Users, sales: BarChart3, orders: ShoppingCart, products: Package, inventory: Boxes,
-  employees: Briefcase, projects: FolderKanban, invoices: Receipt, expenses: Wallet,
 };
 
 function useProfile() {
@@ -90,66 +87,41 @@ function Stepper({ p, onGo }: { p: any; onGo: (t: string) => void }) {
   );
 }
 
-/* ─────────────── First-run: upload ─────────────── */
+/* ─────────────── First-run: ask what to track, then upload ─────────────── */
 function Welcome() {
   const me = useMe();
+  const [types, setTypes] = useState<string[]>([]);
+  const [ready, setReady] = useState(false);
   return (
-    <div className="mx-auto max-w-4xl p-4 sm:p-6 lg:p-8">
+    <div className="mx-auto max-w-5xl p-4 sm:p-6 lg:p-8">
       <div className="relative mb-6 overflow-hidden rounded-3xl bg-navy p-8 text-white sm:p-10">
         <div className="blob pointer-events-none absolute -top-24 -right-24 size-80 rounded-full bg-[#1a6fff]/40 blur-3xl" />
-        <p className="relative text-xs font-semibold tracking-[0.25em] text-[#7aaaff]">BUSINESS ONBOARDING</p>
-        <h1 className="relative mt-3 max-w-xl text-3xl font-extrabold tracking-tight sm:text-4xl">Turn your spreadsheets into live dashboards and smart agents.</h1>
-        <p className="relative mt-3 max-w-xl text-white/70">Upload a CSV or Excel file of your customers, sales, orders, products, invoices or expenses. We detect what's inside, recommend dashboards and the agents that fit your business.</p>
+        <p className="relative text-xs font-semibold tracking-[0.25em] text-[#7aaaff]">BUSINESS HUB</p>
+        <h1 className="relative mt-3 max-w-2xl text-3xl font-extrabold tracking-tight sm:text-4xl">Which business records do you want to track?</h1>
+        <p className="relative mt-3 max-w-xl text-white/70">Pick the records you keep, upload the spreadsheet, and we'll turn it into live dashboards and recommend the agents that fit your business.</p>
         <div className="relative mt-6 flex flex-wrap gap-4 text-sm text-white/80">
           <span className="flex items-center gap-1.5"><Sparkles className="size-4 text-[#7aaaff]" /> AI detects your data</span>
           <span className="flex items-center gap-1.5"><BarChart3 className="size-4 text-[#7aaaff]" /> Instant dashboards</span>
           <span className="flex items-center gap-1.5"><Rocket className="size-4 text-[#7aaaff]" /> Recommended agents</span>
         </div>
       </div>
-      {me.canManage ? <Uploader /> : <Card><Empty icon={<UploadCloud className="size-8" />} title="No business data yet" text="Ask your Admin or a Manager to upload your business data." /></Card>}
+      {!me.canManage ? (
+        <Card><Empty icon={<UploadCloud className="size-8" />} title="No business records yet" text="Ask your Admin or a Manager to upload your business records." /></Card>
+      ) : !ready ? (
+        <>
+          <RecordTypePicker value={types} onChange={setTypes} />
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted">{types.length ? `${types.length} selected — you can upload them in one Excel file or one CSV at a time.` : "Not sure? Just upload your file and we'll detect what's in it."}</p>
+            <Button variant="primary" onClick={() => setReady(true)}>{types.length ? "Continue to upload" : "Skip, just upload"} <ArrowRight className="size-4" /></Button>
+          </div>
+        </>
+      ) : (
+        <div className="mx-auto max-w-2xl">
+          <RecordUploader selected={types} />
+          <div className="mt-4 text-center"><Button variant="ghost" onClick={() => setReady(false)}><ArrowLeft className="size-4" /> Change record types</Button></div>
+        </div>
+      )}
     </div>
-  );
-}
-
-function Uploader({ compact }: { compact?: boolean }) {
-  const qc = useQueryClient();
-  const nav = useNavigate();
-  const catalog = useQuery({ queryKey: ["business", "catalog"], queryFn: () => get("/business/catalog/") });
-  const input = useRef<HTMLInputElement>(null);
-  const [drag, setDrag] = useState(false);
-  const [useAi, setUseAi] = useState(true);
-  const limits = catalog.data?.limits;
-  const upload = useMutation({
-    mutationFn: async (file: File) => {
-      const fd = new FormData(); fd.append("file", file); fd.append("use_ai", String(useAi));
-      return (await api.post("/business/uploads/", fd)).data;
-    },
-    onSuccess: (d: any) => {
-      const n = asList(d?.upload?.sheets).length;
-      toast.ok(`Analyzed ${n} sheet${n === 1 ? "" : "s"} — review what we found`);
-      qc.invalidateQueries({ queryKey: ["business"] });
-      nav("/business?tab=data");
-    },
-    onError: (e) => toast.err(errMsg(e)),
-  });
-  const pick = (f?: File | null) => f && upload.mutate(f);
-
-  return (
-    <Card
-      onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
-      onDrop={(e) => { e.preventDefault(); setDrag(false); pick(e.dataTransfer.files?.[0]); }}
-      className={cn("border-2 border-dashed text-center transition-colors", compact ? "p-6" : "p-10", drag ? "border-accent bg-accent/5" : "border-border")}
-    >
-      <input ref={input} type="file" accept=".csv,.xlsx" className="hidden" onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ""; }} />
-      <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-accent/10 text-accent">{upload.isPending ? <RefreshCw className="size-6 animate-spin" /> : <UploadCloud className="size-6" />}</div>
-      <p className="mt-4 font-semibold">{upload.isPending ? "Analyzing your data…" : "Drop a CSV or Excel file here"}</p>
-      <p className="mt-1 text-sm text-muted">{limits ? `.csv or .xlsx · up to ${limits.max_file_mb} MB · ${limits.max_sheets} sheets` : ".csv or .xlsx"}</p>
-      <Button variant="primary" className="mt-5" loading={upload.isPending} onClick={() => input.current?.click()}><FileSpreadsheet className="size-4" /> Choose file</Button>
-      <label className="mt-5 flex items-center justify-center gap-2.5 text-xs text-muted">
-        <Toggle checked={useAi} onChange={setUseAi} />
-        Use AI to detect sheets <span className="hidden sm:inline">(only column names, types and 3 masked sample rows are sent)</span>
-      </label>
-    </Card>
   );
 }
 
@@ -260,12 +232,31 @@ function DataTab({ profile }: { profile: any }) {
 
       <section>
         <SectionTitle title="Uploads" sub="Review what we detected in each sheet and fix the mapping if needed." />
-        {me.canManage && <div className="mb-4"><Uploader compact /></div>}
+        {me.canManage && <AddRecords />}
         {uploads.isLoading ? <Loading /> : !asList(uploads.data).length ? <Card><Empty title="No uploads" /></Card> : (
           <div className="space-y-3">{asList(uploads.data).map((u: any) => <UploadRow key={u.id} u={u} canManage={me.canManage} />)}</div>
         )}
       </section>
     </div>
+  );
+}
+
+function AddRecords() {
+  const [open, setOpen] = useState(false);
+  const [types, setTypes] = useState<string[]>([]);
+  if (!open) return (
+    <Card className="mb-4 flex flex-wrap items-center gap-4 p-4">
+      <div className="grid size-10 place-items-center rounded-xl bg-accent/10 text-accent"><UploadCloud className="size-5" /></div>
+      <div className="min-w-0 flex-1"><p className="text-sm font-semibold">Track more records</p><p className="text-xs text-muted">Add another spreadsheet — e.g. invoices, expenses or inventory — to get more dashboards.</p></div>
+      <Button variant="primary" onClick={() => setOpen(true)}>Add records</Button>
+    </Card>
+  );
+  return (
+    <Card className="mb-4 space-y-4 p-5">
+      <div className="flex items-center justify-between"><p className="font-semibold">Which records do you want to add?</p><Button size="sm" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button></div>
+      <RecordTypePicker value={types} onChange={setTypes} dense />
+      <RecordUploader selected={types} compact onUploaded={() => setOpen(false)} />
+    </Card>
   );
 }
 
