@@ -5,6 +5,7 @@ import { useUI } from "@/store/ui";
 import { Layout } from "@/components/Layout";
 import { Toaster } from "@/components/toast";
 import { Splash } from "@/components/Splash";
+import { ServerPill } from "@/components/ServerPill";
 import Login from "@/pages/auth/Login";
 import Register from "@/pages/auth/Register";
 import { ForgotPassword, ResetPassword } from "@/pages/auth/ForgotPassword";
@@ -84,6 +85,7 @@ export default function App() {
       </Routes>
       <Toaster />
       {!booted && <Splash onDone={done} />}
+      {booted && <ServerPill />}
     </>
   );
 }

@@ -1,69 +1,163 @@
-import { useEffect, useState } from "react";
-import axios from "axios";
-import { API_URL } from "@/lib/config";
-import { useServer } from "@/store/server";
+import { useEffect, useRef, useState } from "react";
+import { BarChart3, Calendar, FileText, Handshake, Mail, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const MIN_MS = 1800;   // matches the Flutter splash progress animation
-const MAX_MS = 60000;  // Render free instances can take ~50s to wake up
+const INTRO_MS = 3400;
+const SEEN_KEY = "superagent-intro-seen";
+const AGENTS = [
+  { icon: Mail, label: "Email" }, { icon: Handshake, label: "CRM" }, { icon: Wallet, label: "Finance" },
+  { icon: FileText, label: "Docs" }, { icon: Calendar, label: "Calendar" }, { icon: BarChart3, label: "Reports" },
+];
 
 /**
- * Port of the Flutter SplashScreen: black grid backdrop, "SuperAgent" wordmark,
- * "AUTONOMOUS ORCHESTRATION", progress bar and "SYSTEM INITIALIZING...".
- * While it shows, it pings /auth/health/ (and wakes a sleeping Render dyno).
+ * Creative intro: an "agent network" assembles around the logo — particles fly in
+ * and link up, data pulses stream to the orchestrator in the middle, then agent
+ * chips orbit it. Plays once per browser session, never waits on the backend
+ * (that's warmed up in the background by lib/warmup.ts), and can be skipped.
  */
 export function Splash({ onDone }: { onDone: () => void }) {
-  const setServer = useServer((s) => s.set);
-  const [slow, setSlow] = useState(false);
+  const seen = (() => { try { return sessionStorage.getItem(SEEN_KEY) === "1"; } catch { return false; } })();
+  const reduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   const [leaving, setLeaving] = useState(false);
-  const [label, setLabel] = useState("SYSTEM INITIALIZING...");
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const logoRef = useRef<HTMLDivElement>(null);
+  const finished = useRef(false);
+
+  const finish = () => {
+    if (finished.current) return;
+    finished.current = true;
+    try { sessionStorage.setItem(SEEN_KEY, "1"); } catch { /* ignore */ }
+    setLeaving(true);
+    setTimeout(onDone, 550);
+  };
 
   useEffect(() => {
-    const start = Date.now();
-    let finished = false;
-    const finish = (ok: boolean) => {
-      if (finished) return;
-      finished = true;
-      setServer(ok ? "up" : "down");
-      setLabel(ok ? "SYSTEMS ONLINE" : "OFFLINE MODE");
-      const wait = Math.max(0, MIN_MS - (Date.now() - start));
-      setTimeout(() => { setLeaving(true); setTimeout(onDone, 400); }, wait + 250);
+    if (seen) { onDone(); return; }
+    const t = setTimeout(finish, reduced ? 900 : INTRO_MS);
+    const key = (e: KeyboardEvent) => ["Escape", "Enter", " "].includes(e.key) && finish();
+    window.addEventListener("keydown", key);
+    return () => { clearTimeout(t); window.removeEventListener("keydown", key); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // particle network
+  useEffect(() => {
+    if (seen || reduced) return;
+    const c = canvas.current!;
+    const ctx = c.getContext("2d")!;
+    let w = 0, h = 0, raf = 0;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const resize = () => { w = c.clientWidth; h = c.clientHeight; c.width = w * dpr; c.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); };
+    resize();
+    window.addEventListener("resize", resize);
+
+    const N = w < 640 ? 46 : 78;
+    const R = () => Math.min(w * 0.42, h * 0.34, 260);
+    const ps = Array.from({ length: N }, (_, i) => {
+      const a = (i / N) * Math.PI * 2 + Math.random() * 0.4;
+      const far = Math.max(w, h) * (0.7 + Math.random() * 0.5);
+      return {
+        a, r: 0.55 + Math.random() * 0.75, spin: (Math.random() < 0.5 ? -1 : 1) * (0.05 + Math.random() * 0.12),
+        sx: Math.cos(a + 1.2) * far, sy: Math.sin(a + 1.2) * far, delay: Math.random() * 0.5, size: 1 + Math.random() * 1.8,
+        hue: Math.random() < 0.18 ? "#4ecdc4" : Math.random() < 0.5 ? "#7aaaff" : "#1a6fff",
+      };
+    });
+    const pulses: { from: number; t: number; speed: number }[] = [];
+    const ease = (x: number) => 1 - Math.pow(1 - Math.min(1, Math.max(0, x)), 3);
+    const t0 = performance.now();
+
+    const frame = (now: number) => {
+      const t = (now - t0) / 1000;
+      const lr = logoRef.current?.getBoundingClientRect();
+      const cx = lr ? lr.left + lr.width / 2 : w / 2, cy = lr ? lr.top + lr.height / 2 : h / 2, rr = R();
+      ctx.clearRect(0, 0, w, h);
+      const pos = ps.map((p) => {
+        const k = ease((t - p.delay) / 1.25);
+        const ang = p.a + p.spin * t;
+        const tx = Math.cos(ang) * rr * p.r, ty = Math.sin(ang) * rr * p.r * 0.82;
+        return { x: cx + p.sx + (tx - p.sx) * k, y: cy + p.sy + (ty - p.sy) * k, k, p };
+      });
+      // links
+      for (let i = 0; i < pos.length; i++) for (let j = i + 1; j < pos.length; j++) {
+        const dx = pos[i].x - pos[j].x, dy = pos[i].y - pos[j].y, d = Math.hypot(dx, dy);
+        if (d < 95) {
+          ctx.strokeStyle = `rgba(122,170,255,${(1 - d / 95) * 0.35 * Math.min(pos[i].k, pos[j].k)})`;
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(pos[i].x, pos[i].y); ctx.lineTo(pos[j].x, pos[j].y); ctx.stroke();
+        }
+      }
+      // spokes to the orchestrator once assembled
+      if (t > 1.1) {
+        const a = Math.min(1, (t - 1.1) / 0.6) * 0.12;
+        ctx.strokeStyle = `rgba(26,111,255,${a})`;
+        pos.forEach((q, i) => { if (i % 3 === 0) { ctx.beginPath(); ctx.moveTo(q.x, q.y); ctx.lineTo(cx, cy); ctx.stroke(); } });
+        if (Math.random() < 0.35) pulses.push({ from: Math.floor(Math.random() * N), t: 0, speed: 1.4 + Math.random() * 1.2 });
+      }
+      // data pulses flowing into the center
+      for (let i = pulses.length - 1; i >= 0; i--) {
+        const pl = pulses[i]; pl.t += pl.speed / 60;
+        if (pl.t >= 1) { pulses.splice(i, 1); continue; }
+        const s = pos[pl.from]; const x = s.x + (cx - s.x) * pl.t, y = s.y + (cy - s.y) * pl.t;
+        const g = ctx.createRadialGradient(x, y, 0, x, y, 6);
+        g.addColorStop(0, "rgba(78,205,196,.95)"); g.addColorStop(1, "rgba(78,205,196,0)");
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
+      }
+      // nodes
+      pos.forEach(({ x, y, k, p }) => {
+        ctx.globalAlpha = 0.25 + 0.75 * k;
+        ctx.fillStyle = p.hue; ctx.shadowColor = p.hue; ctx.shadowBlur = 8;
+        ctx.beginPath(); ctx.arc(x, y, p.size, 0, Math.PI * 2); ctx.fill();
+      });
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+      raf = requestAnimationFrame(frame);
     };
-    const slowTimer = setTimeout(() => { setSlow(true); setLabel("WAKING UP THE SERVER..."); }, 3500);
-    axios.get(`${API_URL}/api/v1/auth/health/`, { timeout: MAX_MS })
-      .then(() => finish(true))
-      .catch((e) => finish(!!e?.response)); // any HTTP response = reachable
-    return () => clearTimeout(slowTimer);
-  }, [onDone, setServer]);
+    raf = requestAnimationFrame(frame);
+    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", resize); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (seen) return null;
+  const word = "SuperAgent";
 
   return (
-    <div className={cn("splash-grid fixed inset-0 z-[100] flex flex-col items-center justify-center overflow-hidden text-white transition-opacity duration-400", leaving && "opacity-0")}>
-      {/* vignette + blue glow */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#000_70%)]" />
-      <div className="splash-glow pointer-events-none absolute size-[420px] rounded-full bg-[#1a6fff]/25 blur-3xl" />
+    <div onClick={finish} className={cn("intro fixed inset-0 z-[100] cursor-pointer overflow-hidden bg-[#00040f] text-white select-none", leaving && "intro-leave")}>
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,#0a1f4d_0%,#020a1f_45%,#00040f_75%)]" />
+      <canvas ref={canvas} className="absolute inset-0 h-full w-full" />
 
-      <div className="relative grid place-items-center">
-        <svg className="splash-orbit absolute size-40" viewBox="0 0 160 160" aria-hidden>
-          <circle cx="80" cy="80" r="74" fill="none" stroke="#1a6fff" strokeOpacity=".35" strokeDasharray="4 10" />
-          <circle cx="80" cy="6" r="4" fill="#7aaaff" />
-        </svg>
-        <img src="/logo.svg" alt="" className="splash-logo relative size-20 rounded-2xl shadow-[0_0_70px_-8px_#1a6fff]" />
+      <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ ["--r" as any]: "min(29vw, 190px, 26vh)" }}>
+        <div ref={logoRef} className="relative grid place-items-center" style={{ marginTop: "calc(var(--r) * -0.7)" }}>
+          {/* shockwave */}
+          <span className="intro-wave absolute size-24 rounded-full border-2 border-[#7aaaff]" />
+          <span className="intro-wave absolute size-24 rounded-full border border-[#4ecdc4]" style={{ animationDelay: "1.05s" }} />
+          {/* orbiting agents */}
+          <div className="intro-orbit absolute size-0">
+            {AGENTS.map((a, i) => {
+              const deg = (360 / AGENTS.length) * i - 90;
+              return (
+                <div key={a.label} className="absolute" style={{ transform: `rotate(${deg}deg) translate(var(--r)) rotate(${-deg}deg)` }}>
+                  <div className="intro-counter">
+                    <div className="intro-chip flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1.5 text-[11px] font-medium whitespace-nowrap backdrop-blur-md sm:text-xs" style={{ animationDelay: `${1.35 + i * 0.09}s` }}>
+                      <a.icon className="size-3.5 text-[#7aaaff]" /> {a.label}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="intro-logo relative">
+            <div className="absolute -inset-6 rounded-[28px] bg-[#1a6fff]/40 blur-2xl" />
+            <img src="/logo.svg" alt="" className="relative size-20 rounded-2xl sm:size-24" />
+          </div>
+        </div>
+
+        <h1 className="relative flex text-4xl font-extrabold tracking-tight sm:text-6xl" style={{ marginTop: "calc(var(--r) + 0.5rem)" }} aria-label={word}>
+          {word.split("").map((ch, i) => (
+            <span key={i} className={cn("intro-letter", i >= 5 && "text-[#7aaaff]")} style={{ animationDelay: `${0.95 + i * 0.045}s` }}>{ch}</span>
+          ))}
+        </h1>
+        <p className="intro-tag relative mt-3 text-[11px] font-medium tracking-[0.35em] text-white/70 sm:text-xs">YOUR AI WORKFORCE, ORCHESTRATED</p>
       </div>
 
-      <h1 className="splash-fade relative mt-10 text-4xl font-extrabold tracking-tight sm:text-5xl" style={{ animationDelay: ".2s" }}>
-        Super<span className="text-[#7aaaff]">Agent</span>
-      </h1>
-      <p className="splash-fade relative mt-3 text-[11px] font-medium tracking-[0.3em] text-[#e5e7eb]" style={{ animationDelay: ".35s" }}>
-        AUTONOMOUS ORCHESTRATION
-      </p>
-
-      <div className="relative mt-12 h-[3px] w-56 overflow-hidden rounded-full bg-[#1e2a3a]">
-        <div className="splash-fill h-full rounded-full bg-[#1a6fff] shadow-[0_0_12px_#1a6fff]" />
-      </div>
-      <p className="relative mt-4 text-[10px] font-medium tracking-[0.25em] text-[#4a5568]">{label}</p>
-      <p className={cn("relative mt-2 h-4 text-xs text-[#4a5568] transition-opacity", slow ? "opacity-100" : "opacity-0")}>
-        First load can take up to a minute.
-      </p>
+      <div className="absolute inset-x-0 bottom-0 h-[3px] bg-white/5"><div className="intro-bar h-full bg-gradient-to-r from-[#1254d4] via-[#5a9aff] to-[#4ecdc4]" /></div>
+      <button onClick={(e) => { e.stopPropagation(); finish(); }} className="absolute right-5 bottom-6 rounded-full border border-white/15 px-4 py-1.5 text-xs text-white/70 backdrop-blur hover:bg-white/10 hover:text-white cursor-pointer">Skip intro</button>
     </div>
   );
 }
