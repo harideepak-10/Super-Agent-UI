@@ -38,7 +38,7 @@ export const uuid = () =>
 export function errMsg(e: any): string {
   // No response at all = the request never reached Django (server down, wrong URL, CORS, or blocked mixed content)
   if (e?.isAxiosError && !e.response) {
-    const base = (import.meta.env.VITE_API_URL as string) || "http://localhost:8000";
+    const base = (import.meta.env.VITE_API_URL as string) || "https://super-agent-platform.onrender.com";
     return `Can't reach the server at ${base}. Check that the backend is running and VITE_API_URL in .env is correct.`;
   }
   const d = e?.response?.data;
@@ -58,3 +58,23 @@ export const pretty = (v: unknown) => {
   }
   return JSON.stringify(v, null, 2);
 };
+
+/** Format an amount in any ISO currency (backend sends Decimal strings). */
+function compactUnits(n: number, currency: string) {
+  const a = Math.abs(n);
+  const units: [number, string][] = currency === "INR" ? [[1e7, "Cr"], [1e5, "L"], [1e3, "K"]] : [[1e9, "B"], [1e6, "M"], [1e3, "K"]];
+  for (const [d, u] of units) if (a >= d) return `${+(n / d).toFixed(a / d >= 100 ? 0 : 1)}${u}`;
+  return String(Math.round(n));
+}
+export function money(v: number | string | null | undefined, currency = "INR", compact = false) {
+  if (v == null || v === "") return "—";
+  const n = Number(v);
+  if (compact && Math.abs(n) >= 1000) {
+    const sym = new Intl.NumberFormat("en", { style: "currency", currency, maximumFractionDigits: 0 }).formatToParts(0).find((p) => p.type === "currency")?.value ?? currency + " ";
+    return `${sym}${compactUnits(n, currency)}`;
+  }
+  try {
+    return new Intl.NumberFormat(currency === "INR" ? "en-IN" : undefined, { style: "currency", currency, maximumFractionDigits: compact || Math.abs(n) >= 1000 ? 0 : 2, notation: compact ? "compact" : "standard" }).format(n);
+  } catch { return `${currency} ${n.toLocaleString()}`; }
+}
+export const num = (v: any, compact = false) => (v == null || v === "" ? "—" : new Intl.NumberFormat(undefined, { notation: compact ? "compact" : "standard", maximumFractionDigits: 2 }).format(Number(v)));

@@ -35,7 +35,7 @@ export default function Login() {
   }, []);
 
   return (
-    <AuthShell title="Welcome back" subtitle="Sign in to your workspace" footer={<>New here? <Link to="/register" className="text-accent hover:underline">Create an account</Link></>}>
+    <AuthShell title="Welcome Back" subtitle="Sign in to your AI workforce" footer={<>Are you a new member? <Link to="/register" className="font-semibold text-accent hover:underline">Sign up</Link></>}>
       {server === "down" && (
         <div className="mb-5 rounded-lg border border-warn/30 bg-warn/10 px-3 py-2.5 text-xs text-warn">
           Can't reach the backend at <span className="font-mono">{API_URL}</span>. Start Django or set <span className="font-mono">VITE_API_URL</span> in <span className="font-mono">.env</span>.
@@ -43,11 +43,11 @@ export default function Login() {
       )}
       <GoogleButton onToken={google} />
       <form onSubmit={submit} className="space-y-4">
-        <Field label="Email"><Input type="email" autoFocus required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" /></Field>
-        <Field label="Password"><PasswordInput required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" /></Field>
+        <Field label="Email address"><Input type="email" autoFocus required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="example@gmail.com" /></Field>
+        <Field label="Password"><PasswordInput required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" /></Field>
         <div className="flex justify-end"><Link to="/forgot-password" className="text-xs text-muted hover:text-fg">Forgot password?</Link></div>
         {error && <p className="text-sm text-err">{error}</p>}
-        <Button variant="primary" className="w-full" loading={loading}>Sign in</Button>
+        <Button variant="primary" className="h-11 w-full" loading={loading}>Login</Button>
       </form>
     </AuthShell>
   );

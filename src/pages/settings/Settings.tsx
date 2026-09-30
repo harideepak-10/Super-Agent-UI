@@ -5,6 +5,7 @@ import { Copy, ExternalLink, Mail, HardDrive, Calendar, Slack, Send, MessageCirc
 import { api, del, get, patch, post } from "@/api/client";
 import { asList, cn, errMsg, timeAgo } from "@/lib/utils";
 import { useAuth } from "@/store/auth";
+import { useMe } from "@/lib/useMe";
 import { Badge, Button, Card, Field, Input, Loading, PasswordInput, Modal, PageHeader, Select, StatusBadge, Table, Td, Toggle } from "@/components/ui";
 import { Avatar } from "@/components/Layout";
 import { toast } from "@/components/toast";
@@ -12,17 +13,19 @@ import { toast } from "@/components/toast";
 export function SettingsLayout() {
   const tabs = [
     { to: "/settings", label: "Profile", end: true },
-    { to: "/settings/integrations", label: "Integrations" },
+    { to: "/settings/integrations", label: "Connected apps" },
     { to: "/settings/team", label: "Team" },
     { to: "/settings/notifications", label: "Notifications" },
   ];
   return (
     <div className="mx-auto max-w-5xl p-4 sm:p-6 lg:p-8">
       <PageHeader title="Settings" />
-      <div className="mb-6 flex gap-1 overflow-x-auto border-b border-border">
-        {tabs.map((t) => (
-          <NavLink key={t.to} to={t.to} end={t.end} className={({ isActive }) => cn("-mb-px border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap", isActive ? "border-accent text-fg" : "border-transparent text-muted hover:text-fg")}>{t.label}</NavLink>
-        ))}
+      <div className="mb-6 overflow-x-auto">
+        <div className="inline-flex gap-1 rounded-xl border border-border bg-surface-2 p-1">
+          {tabs.map((t) => (
+            <NavLink key={t.to} to={t.to} end={t.end} className={({ isActive }) => cn("rounded-lg px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition-all", isActive ? "bg-surface text-fg shadow-card" : "text-muted hover:text-fg")}>{t.label}</NavLink>
+          ))}
+        </div>
       </div>
       <Outlet />
     </div>
@@ -75,6 +78,11 @@ export function ProfileSettings() {
 }
 
 /* ─────────────── Integrations & channels ─────────────── */
+const LOGOS: Record<string, string> = {
+  gmail: "/images/gmail_logo.webp", google_drive: "/images/drive_logo.webp", google_calendar: "/images/google_calendar.webp",
+  slack: "/images/slack_logo.webp", notion: "/images/notion_logo.webp", github: "/images/github_logo.webp",
+  telegram: "/images/telegram_logo.webp", whatsapp: "/images/whatsapp_logo.webp",
+};
 const PROVIDERS: Record<string, { icon: any; desc: string; auth?: string; color: string }> = {
   gmail: { icon: Mail, desc: "Read and send email with the Email Agent", auth: "/integrations/gmail/auth-url/", color: "text-red-400 bg-red-400/10" },
   google_drive: { icon: HardDrive, desc: "Find, read and create documents", auth: "/integrations/drive/auth-url/", color: "text-emerald-400 bg-emerald-400/10" },
@@ -123,7 +131,7 @@ export function IntegrationSettings() {
           const isChannel = p.provider === "telegram" || p.provider === "whatsapp";
           return (
             <Card key={p.provider} className="flex items-start gap-4 p-5">
-              <div className={cn("grid size-10 shrink-0 place-items-center rounded-lg", meta.color)}><meta.icon className="size-5" /></div>
+              {LOGOS[p.provider] ? <div className="grid size-11 shrink-0 place-items-center rounded-xl border border-border bg-white p-2"><img src={LOGOS[p.provider]} alt="" className="max-h-full max-w-full object-contain" /></div> : <div className={cn("grid size-11 shrink-0 place-items-center rounded-xl", meta.color)}><meta.icon className="size-5" /></div>}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2"><p className="font-medium">{p.label}</p>{conn && <StatusBadge status={conn.status} />}</div>
                 <p className="mt-0.5 text-sm text-muted">{meta.desc}</p>
@@ -168,62 +176,125 @@ function ChannelConnect({ channel, onClose }: { channel: "telegram" | "whatsapp"
   );
 }
 
-/* ─────────────── Team ─────────────── */
-const ROLES = [{ v: "owner", l: "Owner" }, { v: "admin", l: "Operator" }, { v: "member", l: "Member" }, { v: "viewer", l: "Viewer" }];
+/* ─────────────── Team (Admin / Manager / Member) ─────────────── */
+const ROLE_TONE: Record<string, any> = { owner: "accent", manager: "info", member: "neutral" };
+const ROLE_NAME: Record<string, string> = { owner: "Admin", manager: "Manager", member: "Member" };
 
 export function TeamSettings() {
   const qc = useQueryClient();
   const me = useAuth((s) => s.user);
+  const who = useMe();
+  const [tab, setTab] = useState<"members" | "activity">("members");
   const members = useQuery({ queryKey: ["team", "members"], queryFn: () => get("/team/members/") });
   const invites = useQuery({ queryKey: ["team", "invites"], queryFn: () => get("/team/invites/") });
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ email: "", role: "member" });
   const inv = () => qc.invalidateQueries({ queryKey: ["team"] });
   const invite = useMutation({ mutationFn: () => post("/team/invite/", form), onSuccess: () => { toast.ok("Invite sent"); setOpen(false); setForm({ email: "", role: "member" }); inv(); }, onError: (e) => toast.err(errMsg(e)) });
-  const role = useMutation({ mutationFn: ({ id, role }: { id: string; role: string }) => post(`/team/members/${id}/role/`, { role }), onSuccess: () => { toast.ok("Role updated"); inv(); }, onError: (e) => toast.err(errMsg(e)) });
+  const update = useMutation({ mutationFn: ({ id, body }: { id: string; body: any }) => patch(`/team/members/${id}/role/`, body), onSuccess: () => { toast.ok("Updated"); inv(); }, onError: (e) => toast.err(errMsg(e)) });
   const remove = useMutation({ mutationFn: (id: string) => del(`/team/members/${id}/remove/`), onSuccess: () => { toast.ok("Member removed"); inv(); }, onError: (e) => toast.err(errMsg(e)) });
   const respond = useMutation({ mutationFn: ({ id, accept }: { id: string; accept: boolean }) => post(`/team/invites/${id}/${accept ? "accept" : "reject"}/`), onSuccess: inv, onError: (e) => toast.err(errMsg(e)) });
   const pending = asList(invites.data).filter((i: any) => i.status === "pending");
+  const list = asList(members.data);
+  const managers = list.filter((m: any) => m.role === "manager");
+  const canInvite = who.canManage;
+  const canRemove = (m: any) => m.email !== me?.email && m.role !== "owner" && (who.isAdmin || (who.isManager && m.role === "member" && m.manager_email === me?.email));
 
   return (
     <div className="space-y-6">
+      <Card className="p-4 text-sm text-muted">
+        <p><span className="font-semibold text-fg">Admin</span> owns the workspace and assigns Managers or Members. <span className="font-semibold text-fg">Managers</span> invite Members, and see and approve only their Members' tasks. <span className="font-semibold text-fg">Members</span> can't approve their own tasks.</p>
+      </Card>
       {pending.length > 0 && (
         <Card className="border-accent/40 p-5">
           <p className="mb-3 text-sm font-medium">Invitations for you</p>
           {pending.map((i: any) => (
             <div key={i.id} className="flex items-center gap-3 py-2">
-              <p className="flex-1 text-sm">{i.invited_by_email} invited you as <Badge tone="accent">{i.role}</Badge></p>
+              <p className="flex-1 text-sm">{i.invited_by_email} invited you as <Badge tone="accent">{ROLE_NAME[i.role] ?? i.role}</Badge></p>
               <Button size="sm" variant="success" onClick={() => respond.mutate({ id: i.id, accept: true })}>Accept</Button>
               <Button size="sm" variant="ghost" onClick={() => respond.mutate({ id: i.id, accept: false })}>Decline</Button>
             </div>
           ))}
         </Card>
       )}
-      <Card>
-        <div className="flex items-center justify-between border-b border-border px-5 py-3">
-          <p className="text-sm font-medium">Members</p>
-          <Button size="sm" variant="primary" onClick={() => setOpen(true)}><UserPlus className="size-3.5" /> Invite</Button>
-        </div>
-        {members.isLoading ? <Loading /> : (
-          <Table head={["Member", "Role", "Joined", ""]}>
-            {asList(members.data).map((m: any) => (
-              <tr key={m.id}>
-                <Td><div className="flex items-center gap-3"><Avatar name={m.name || m.email} src={m.avatar_url} /><div><p className="font-medium">{m.name || "—"} {m.email === me?.email && <span className="text-xs text-accent">(you)</span>}</p><p className="text-xs text-muted">{m.email}</p></div></div></Td>
-                <Td><Select value={m.role} disabled={m.email === me?.email} onChange={(e) => role.mutate({ id: m.id, role: e.target.value })} className="h-8 text-xs">{ROLES.map((r) => <option key={r.v} value={r.v}>{r.l}</option>)}</Select></Td>
-                <Td className="text-muted">{timeAgo(m.joined_at)}</Td>
-                <Td className="text-right">{m.email !== me?.email && <Button variant="ghost" size="icon" onClick={() => remove.mutate(m.id)}><Trash2 className="size-4" /></Button>}</Td>
-              </tr>
-            ))}
-          </Table>
-        )}
-      </Card>
+      <div className="flex items-center gap-2">
+        {(["members", "activity"] as const).map((t) => (
+          <button key={t} onClick={() => setTab(t)} className={cn("rounded-full border px-3.5 py-1.5 text-xs font-medium capitalize cursor-pointer", tab === t ? "border-accent bg-accent text-white" : "border-border bg-surface text-muted")}>{t}</button>
+        ))}
+        {canInvite && <Button size="sm" variant="primary" className="ml-auto" onClick={() => setOpen(true)}><UserPlus className="size-3.5" /> Invite</Button>}
+      </div>
+      {tab === "members" ? (
+        <Card>
+          {members.isLoading ? <Loading /> : (
+            <Table head={["Member", "Role", "Reports to", "Joined", ""]}>
+              {list.map((m: any) => (
+                <tr key={m.id}>
+                  <Td><div className="flex items-center gap-3"><Avatar name={m.name || m.email} src={m.avatar_url} /><div><p className="font-medium">{m.name || "—"} {m.email === me?.email && <span className="text-xs text-accent">(you)</span>}</p><p className="text-xs text-muted">{m.email}</p></div></div></Td>
+                  <Td>
+                    {who.isAdmin && m.role !== "owner" ? (
+                      <Select value={m.role} onChange={(e) => update.mutate({ id: m.id, body: { role: e.target.value } })} className="h-8 text-xs"><option value="manager">Manager</option><option value="member">Member</option></Select>
+                    ) : <Badge tone={ROLE_TONE[m.role]}>{m.role_label ?? ROLE_NAME[m.role] ?? m.role}</Badge>}
+                  </Td>
+                  <Td>
+                    {m.role === "member" && who.isAdmin ? (
+                      <Select value={managers.find((x: any) => x.email === m.manager_email)?.user ?? ""} onChange={(e) => update.mutate({ id: m.id, body: { manager_id: e.target.value || null } })} className="h-8 max-w-44 text-xs">
+                        <option value="">— No manager —</option>
+                        {managers.map((x: any) => <option key={x.id} value={x.user}>{x.name || x.email}</option>)}
+                      </Select>
+                    ) : <span className="text-xs text-muted">{m.manager_email ?? "—"}</span>}
+                  </Td>
+                  <Td className="text-muted">{timeAgo(m.joined_at)}</Td>
+                  <Td className="text-right">{canRemove(m) && <Button variant="ghost" size="icon" onClick={() => remove.mutate(m.id)}><Trash2 className="size-4" /></Button>}</Td>
+                </tr>
+              ))}
+            </Table>
+          )}
+        </Card>
+      ) : <TeamActivity />}
       <Modal open={open} onClose={() => setOpen(false)} title="Invite a teammate">
         <div className="space-y-4">
           <Field label="Email"><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
-          <Field label="Role"><Select className="w-full" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>{ROLES.filter((r) => r.v !== "owner").map((r) => <option key={r.v} value={r.v}>{r.l}</option>)}</Select></Field>
+          <Field label="Role" hint={who.isManager ? "Managers can invite Members, who are assigned to you." : undefined}>
+            <Select className="w-full" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
+              {who.isAdmin && <option value="manager">Manager</option>}
+              <option value="member">Member</option>
+            </Select>
+          </Field>
           <Button variant="primary" className="w-full" disabled={!form.email} loading={invite.isPending} onClick={() => invite.mutate()}>Send invite</Button>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+function TeamActivity() {
+  const [days, setDays] = useState(30);
+  const q = useQuery({ queryKey: ["team", "activity", days], queryFn: () => get("/team/activity/", { days }) });
+  const d = q.data ?? {};
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 text-sm text-muted">Last <Select value={days} onChange={(e) => setDays(+e.target.value)} className="h-8 text-xs">{[7, 30, 90, 365].map((n) => <option key={n} value={n}>{n} days</option>)}</Select>{d.scope && <span>· you see {d.scope === "Admin" ? "everyone" : d.scope === "Manager" ? "yourself and your Members" : "only yourself"}</span>}</div>
+      {q.isLoading ? <Loading /> : (
+        <div className="grid gap-3 md:grid-cols-2">
+          {asList(d.members).map((m: any) => {
+            const rate = m.total_tasks ? Math.round((m.completed / m.total_tasks) * 100) : 0;
+            return (
+              <Card key={m.user_id} className="p-4">
+                <div className="flex items-center gap-3">
+                  <Avatar name={m.name || m.email} />
+                  <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{m.name || m.email}</p><p className="text-xs text-muted">{m.role_label}{m.manager_email ? ` · reports to ${m.manager_email}` : ""}</p></div>
+                  <div className="text-right"><p className="text-xl font-bold">{m.total_tasks}</p><p className="text-[11px] text-muted">tasks</p></div>
+                </div>
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-2"><div className="h-full bg-ok" style={{ width: `${rate}%` }} /></div>
+                <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted">
+                  <span className="text-ok">{m.completed} completed</span><span className="text-err">{m.failed} failed</span><span className="text-warn">{m.waiting_approval} waiting</span>
+                  {m.most_used_agent && <span className="ml-auto">Most used: <span className="text-fg">{m.most_used_agent}</span></span>}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

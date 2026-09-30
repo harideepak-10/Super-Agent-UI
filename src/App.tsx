@@ -11,6 +11,10 @@ import { ForgotPassword, ResetPassword } from "@/pages/auth/ForgotPassword";
 import Home from "@/pages/Home";
 import Chat from "@/pages/Chat";
 import Approvals, { ApprovalDetail } from "@/pages/Approvals";
+import Onboarding, { hasOnboarded } from "@/pages/auth/Onboarding";
+import { NewTask, TasksList } from "@/pages/Tasks";
+import CRM from "@/pages/CRM";
+import BusinessHub, { BusinessPage } from "@/pages/Business";
 import { AgentDetail, AgentLibrary, AgentsList } from "@/pages/Agents";
 import { WorkflowEditor, WorkflowsList } from "@/pages/Workflows";
 import { CustomerDetail, CustomersList } from "@/pages/Customers";
@@ -23,7 +27,7 @@ import { IntegrationSettings, NotificationSettings, ProfileSettings, SettingsLay
 function RequireAuth({ children }: { children: JSX.Element }) {
   const token = useAuth((s) => s.access);
   const loc = useLocation();
-  if (!token) return <Navigate to="/login" replace state={{ from: loc.pathname + loc.search }} />;
+  if (!token) return <Navigate to={hasOnboarded() ? "/login" : "/welcome"} replace state={{ from: loc.pathname + loc.search }} />;
   return children;
 }
 
@@ -40,6 +44,7 @@ export default function App() {
   return (
     <>
       <Routes>
+        <Route path="/welcome" element={<PublicOnly><Onboarding /></PublicOnly>} />
         <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
         <Route path="/register" element={<PublicOnly><Register /></PublicOnly>} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -47,8 +52,14 @@ export default function App() {
         <Route element={<RequireAuth><Layout /></RequireAuth>}>
           <Route index element={<Home />} />
           <Route path="chat" element={<Chat />} />
-          <Route path="approvals" element={<Approvals />} />
-          <Route path="approvals/:id" element={<ApprovalDetail />} />
+          <Route path="inbox" element={<Approvals />} />
+          <Route path="inbox/:id" element={<ApprovalDetail />} />
+          <Route path="approvals" element={<Navigate to="/inbox" replace />} />
+          <Route path="tasks" element={<TasksList />} />
+          <Route path="tasks/new" element={<NewTask />} />
+          <Route path="crm" element={<CRM />} />
+          <Route path="business" element={<BusinessHub />} />
+          <Route path="business/:page" element={<BusinessPage />} />
           <Route path="agents" element={<AgentsList />} />
           <Route path="agents/library" element={<AgentLibrary />} />
           <Route path="agents/:id" element={<AgentDetail />} />

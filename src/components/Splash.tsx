@@ -4,17 +4,19 @@ import { API_URL } from "@/lib/config";
 import { useServer } from "@/store/server";
 import { cn } from "@/lib/utils";
 
-const MIN_MS = 1400;     // always show the brand for a moment
-const MAX_MS = 60000;    // Render free instances can take ~50s to wake up
+const MIN_MS = 1800;   // matches the Flutter splash progress animation
+const MAX_MS = 60000;  // Render free instances can take ~50s to wake up
 
 /**
- * Full-screen splash shown on app start. It pings /auth/health/ so the app
- * knows whether the backend is reachable (and wakes a sleeping Render dyno).
+ * Port of the Flutter SplashScreen: black grid backdrop, "SuperAgent" wordmark,
+ * "AUTONOMOUS ORCHESTRATION", progress bar and "SYSTEM INITIALIZING...".
+ * While it shows, it pings /auth/health/ (and wakes a sleeping Render dyno).
  */
 export function Splash({ onDone }: { onDone: () => void }) {
   const setServer = useServer((s) => s.set);
   const [slow, setSlow] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [label, setLabel] = useState("SYSTEM INITIALIZING...");
 
   useEffect(() => {
     const start = Date.now();
@@ -23,31 +25,44 @@ export function Splash({ onDone }: { onDone: () => void }) {
       if (finished) return;
       finished = true;
       setServer(ok ? "up" : "down");
+      setLabel(ok ? "SYSTEMS ONLINE" : "OFFLINE MODE");
       const wait = Math.max(0, MIN_MS - (Date.now() - start));
-      setTimeout(() => { setLeaving(true); setTimeout(onDone, 350); }, wait);
+      setTimeout(() => { setLeaving(true); setTimeout(onDone, 400); }, wait + 250);
     };
-    const slowTimer = setTimeout(() => setSlow(true), 3500);
+    const slowTimer = setTimeout(() => { setSlow(true); setLabel("WAKING UP THE SERVER..."); }, 3500);
     axios.get(`${API_URL}/api/v1/auth/health/`, { timeout: MAX_MS })
       .then(() => finish(true))
-      .catch((e) => finish(!!e?.response)); // any HTTP response means the server is reachable
+      .catch((e) => finish(!!e?.response)); // any HTTP response = reachable
     return () => clearTimeout(slowTimer);
   }, [onDone, setServer]);
 
   return (
-    <div className={cn("fixed inset-0 z-[100] flex flex-col items-center justify-center bg-bg transition-opacity duration-300", leaving && "opacity-0")}>
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,color-mix(in_srgb,var(--accent)_20%,transparent),transparent_55%)]" />
+    <div className={cn("splash-grid fixed inset-0 z-[100] flex flex-col items-center justify-center overflow-hidden text-white transition-opacity duration-400", leaving && "opacity-0")}>
+      {/* vignette + blue glow */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#000_70%)]" />
+      <div className="splash-glow pointer-events-none absolute size-[420px] rounded-full bg-[#1a6fff]/25 blur-3xl" />
+
       <div className="relative grid place-items-center">
-        <span className="splash-ring absolute size-24 rounded-3xl border-2 border-accent/60" />
-        <span className="splash-ring absolute size-24 rounded-3xl border-2 border-accent/40 [animation-delay:0.6s]" />
-        <img src="/logo.svg" alt="" className="splash-logo relative size-20 rounded-2xl shadow-[0_0_60px_-10px_var(--accent)]" />
+        <svg className="splash-orbit absolute size-40" viewBox="0 0 160 160" aria-hidden>
+          <circle cx="80" cy="80" r="74" fill="none" stroke="#1a6fff" strokeOpacity=".35" strokeDasharray="4 10" />
+          <circle cx="80" cy="6" r="4" fill="#7aaaff" />
+        </svg>
+        <img src="/logo.svg" alt="" className="splash-logo relative size-20 rounded-2xl shadow-[0_0_70px_-8px_#1a6fff]" />
       </div>
-      <h1 className="splash-fade relative mt-8 text-2xl font-semibold tracking-tight">Super Agent</h1>
-      <p className="splash-fade relative mt-1.5 text-sm text-muted [animation-delay:0.15s]">Your AI workforce, on call.</p>
-      <div className="relative mt-8 h-1 w-40 overflow-hidden rounded-full bg-surface-2">
-        <div className="splash-bar h-full w-1/3 rounded-full bg-accent" />
+
+      <h1 className="splash-fade relative mt-10 text-4xl font-extrabold tracking-tight sm:text-5xl" style={{ animationDelay: ".2s" }}>
+        Super<span className="text-[#7aaaff]">Agent</span>
+      </h1>
+      <p className="splash-fade relative mt-3 text-[11px] font-medium tracking-[0.3em] text-[#e5e7eb]" style={{ animationDelay: ".35s" }}>
+        AUTONOMOUS ORCHESTRATION
+      </p>
+
+      <div className="relative mt-12 h-[3px] w-56 overflow-hidden rounded-full bg-[#1e2a3a]">
+        <div className="splash-fill h-full rounded-full bg-[#1a6fff] shadow-[0_0_12px_#1a6fff]" />
       </div>
-      <p className={cn("relative mt-4 h-4 text-xs text-muted transition-opacity", slow ? "opacity-100" : "opacity-0")}>
-        Waking up the server… this can take up to a minute on first load.
+      <p className="relative mt-4 text-[10px] font-medium tracking-[0.25em] text-[#4a5568]">{label}</p>
+      <p className={cn("relative mt-2 h-4 text-xs text-[#4a5568] transition-opacity", slow ? "opacity-100" : "opacity-0")}>
+        First load can take up to a minute.
       </p>
     </div>
   );

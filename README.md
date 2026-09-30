@@ -9,33 +9,45 @@ React web app for the Super Agent Platform (Django backend in `../Super Agent Pl
 ```bash
 cd superagent-web
 npm install
-cp .env.example .env      # point VITE_API_URL at your Django server
 npm run dev               # http://localhost:5173
 ```
+
+By default the app talks to the same backend as the Flutter app: `https://super-agent-platform.onrender.com`.
+To use a local Django instead, copy `.env.example` to `.env` and set `VITE_API_URL=http://localhost:8000`.
+
+The design follows the Flutter app (`super_agent_flutter`): same splash, onboarding slides, navy auth screens,
+brand blue `#1A6FFF`, and the Home / Inbox / Tasks / Agents navigation with the New Task button.
 
 The backend must be served by an ASGI server (Daphne/Uvicorn) for WebSockets to work, and CORS must allow the dev origin (development settings already set `CORS_ALLOW_ALL_ORIGINS = True`).
 
 | Env var | Default | Purpose |
 |---|---|---|
-| `VITE_API_URL` | `http://localhost:8000` | Django base URL |
+| `VITE_API_URL` | `https://super-agent-platform.onrender.com` | Django base URL |
 | `VITE_WS_URL` | derived from API URL | Channels base URL (`ws://` / `wss://`) |
-| `VITE_GOOGLE_CLIENT_ID` | — | Optional. Shows "Continue with Google" on login (`/auth/google/`) |
+| `VITE_GOOGLE_CLIENT_ID` | Flutter app's web client | Google sign-in (`/auth/google/`). Add your site's origin to the client's authorised JavaScript origins |
 
-Build for production: `npm run build` → static files in `dist/`.
+Build for production: `npm run build` → static files in `dist/`. `public/_redirects` makes client-side routes work on Netlify.
 
 ## Screens → API
 
 | Route | Screen | Endpoints |
 |---|---|---|
 | `/login`, `/register`, `/forgot-password`, `/reset-password` | Auth | `/auth/*` |
-| `/` | Home dashboard | `/dashboard/`, `/quick-tasks/`, `/approvals/{id}/decide/` |
-| `/chat` | Chat + live execution trace + inline approvals | `/tasks/*`, `ws/tasks/<id>/` |
-| `/approvals`, `/approvals/:id` | Inbox, history, rules | `/approvals/*` |
+| `/welcome` | Onboarding slides (first visit) | — |
+| `/` | Home dashboard + business pulse + follow-ups | `/dashboard/`, `/quick-tasks/`, `/business/dashboard/`, `/crm/follow-ups/` |
+| `/tasks`, `/tasks/new` | Task list with filters/search, New Task form | `/tasks/`, `/search/tasks/`, `/tasks/new-task-form/`, `/tasks/create/` |
+| `/chat` | Conversations + live execution trace + inline approvals | `/tasks/*`, `ws/tasks/<id>/` |
+| `/inbox`, `/inbox/:id` | Approvals: awaiting, history, tool rules, who approves (per-agent policy) | `/approvals/*`, `/approvals/policies/` |
+| `/crm` | Deals pipeline (drag & drop), follow-ups, lead scores, inactive contacts, customer overview | `/crm/*` |
+| `/business`, `/business/:page` | Business onboarding (upload → review → confirm → import → hire agents), records browser + CSV export, dynamic dashboards | `/business/*` |
 | `/agents`, `/agents/library`, `/agents/:id` | My agents, template library, agent detail (overview / tasks / live / audit / settings) | `/agents/*`, `ws/agents/<id>/live/` |
 | `/workflows`, `/workflows/:id` | Step-list builder + runs | `/workflows/*` |
 | `/customers`, `/customers/:id` | Customer memory + interaction timeline | `/memory/*` |
 | `/costs` · `/audit` · `/compliance` · `/qa` | Governance | `/costs/*`, `/audit/*`, `/compliance/*`, `/qa/*` |
-| `/settings/*` | Profile, integrations & channels, team, notifications | `/profile/*`, `/integrations/*`, `/team/*`, `/notifications/settings/` |
+| `/settings/*` | Profile, connected apps & channels, team (Admin / Manager / Member, manager assignment, activity), notifications | `/profile/*`, `/integrations/*`, `/team/*`, `/notifications/settings/` |
+
+Role-aware UI: the current role comes from `/profile/settings-summary/` (`owner` = Admin). Admin-only actions
+(confirm business profile, hire recommended agents, approval policies, role changes) are hidden for others.
 
 Global: `Ctrl/⌘ K` search (`/search/`), notification bell (`/notifications/*` + `ws/notifications/`), light/dark toggle.
 

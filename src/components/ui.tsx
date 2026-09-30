@@ -13,12 +13,12 @@ export const Button = forwardRef<HTMLButtonElement, BtnProps>(
       ref={ref}
       disabled={disabled || loading}
       className={cn(
-        "inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-2 focus-visible:outline-accent cursor-pointer",
+        "inline-flex items-center justify-center gap-1.5 rounded-xl font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-2 focus-visible:outline-accent cursor-pointer",
         size === "sm" && "h-8 px-2.5 text-xs",
-        size === "md" && "h-9 px-3.5 text-sm",
-        size === "icon" && "h-9 w-9",
-        variant === "primary" && "bg-accent text-accent-fg hover:brightness-110",
-        variant === "secondary" && "bg-surface-2 border border-border hover:bg-border/60",
+        size === "md" && "h-10 px-4 text-sm",
+        size === "icon" && "h-9 w-9 rounded-lg",
+        variant === "primary" && "bg-brand text-white shadow-[0_8px_20px_-8px_var(--accent)] hover:brightness-110 active:brightness-95",
+        variant === "secondary" && "bg-surface border border-border hover:bg-surface-2",
         variant === "ghost" && "hover:bg-surface-2 text-muted hover:text-fg",
         variant === "danger" && "bg-err/10 text-err border border-err/30 hover:bg-err/20",
         variant === "success" && "bg-ok text-white hover:brightness-110",
@@ -35,7 +35,7 @@ export const Button = forwardRef<HTMLButtonElement, BtnProps>(
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(({ className, ...p }, ref) => (
   <input
     ref={ref}
-    className={cn("h-9 w-full rounded-lg border border-border bg-surface px-3 text-sm outline-none placeholder:text-muted focus:border-accent", className)}
+    className={cn("h-10 w-full rounded-xl border border-border bg-surface-2 px-3.5 text-sm outline-none transition-colors placeholder:text-muted focus:border-accent focus:bg-surface focus:ring-4 focus:ring-accent/10 disabled:opacity-60", className)}
     {...p}
   />
 ));
@@ -62,13 +62,13 @@ export const PasswordInput = forwardRef<HTMLInputElement, Omit<InputHTMLAttribut
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(({ className, ...p }, ref) => (
   <textarea
     ref={ref}
-    className={cn("w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none placeholder:text-muted focus:border-accent", className)}
+    className={cn("w-full rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-sm outline-none transition-colors placeholder:text-muted focus:border-accent focus:bg-surface focus:ring-4 focus:ring-accent/10", className)}
     {...p}
   />
 ));
 
 export const Select = ({ className, children, ...p }: SelectHTMLAttributes<HTMLSelectElement>) => (
-  <select className={cn("h-9 rounded-lg border border-border bg-surface px-2.5 text-sm outline-none focus:border-accent", className)} {...p}>
+  <select className={cn("h-10 rounded-xl border border-border bg-surface px-3 text-sm outline-none focus:border-accent", className)} {...p}>
     {children}
   </select>
 );
@@ -82,7 +82,7 @@ export const Field = ({ label, hint, children }: { label: string; hint?: string;
 );
 
 export const Card = ({ className, children, ...p }: { className?: string; children: ReactNode } & React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("rounded-xl border border-border bg-surface", className)} {...p}>{children}</div>
+  <div className={cn("rounded-2xl border border-border bg-surface shadow-card", className)} {...p}>{children}</div>
 );
 
 export const Badge = ({ tone = "neutral", children, className }: { tone?: "neutral" | "ok" | "warn" | "err" | "info" | "accent"; children: ReactNode; className?: string }) => (
@@ -155,7 +155,7 @@ export const ErrorBox = ({ error }: { error: any }) => (
 export const PageHeader = ({ title, subtitle, actions }: { title: string; subtitle?: ReactNode; actions?: ReactNode }) => (
   <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
     <div>
-      <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+      <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
       {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
     </div>
     {actions && <div className="flex items-center gap-2">{actions}</div>}
@@ -164,19 +164,21 @@ export const PageHeader = ({ title, subtitle, actions }: { title: string; subtit
 
 export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { value: T; label: ReactNode }[]; value: T; onChange: (v: T) => void }) {
   return (
-    <div className="mb-5 flex gap-1 overflow-x-auto border-b border-border">
-      {tabs.map((t) => (
-        <button
-          key={t.value}
-          onClick={() => onChange(t.value)}
-          className={cn(
-            "-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors cursor-pointer",
-            value === t.value ? "border-accent text-fg" : "border-transparent text-muted hover:text-fg"
-          )}
-        >
-          {t.label}
-        </button>
-      ))}
+    <div className="mb-6 overflow-x-auto">
+      <div className="inline-flex gap-1 rounded-xl border border-border bg-surface-2 p-1">
+        {tabs.map((t) => (
+          <button
+            key={t.value}
+            onClick={() => onChange(t.value)}
+            className={cn(
+              "rounded-lg px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition-all cursor-pointer",
+              value === t.value ? "bg-surface text-fg shadow-card" : "text-muted hover:text-fg"
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -191,7 +193,7 @@ export const Modal = ({ open, onClose, title, children, wide }: { open: boolean;
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-[10vh] backdrop-blur-sm" onMouseDown={onClose}>
-      <div className={cn("w-full rounded-xl border border-border bg-surface shadow-2xl", wide ? "max-w-2xl" : "max-w-md")} onMouseDown={(e) => e.stopPropagation()}>
+      <div className={cn("w-full rounded-2xl border border-border bg-surface shadow-2xl", wide ? "max-w-2xl" : "max-w-md")} onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
           <h2 className="font-semibold">{title}</h2>
           <Button variant="ghost" size="icon" onClick={onClose}><X className="size-4" /></Button>

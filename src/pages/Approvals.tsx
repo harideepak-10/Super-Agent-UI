@@ -5,7 +5,9 @@ import { ArrowLeft, CheckCircle2, Plus, ShieldCheck, Trash2 } from "lucide-react
 import { del, get, patch, post } from "@/api/client";
 import type { Approval } from "@/api/types";
 import { asList, cn, errMsg, timeAgo } from "@/lib/utils";
-import { Button, Card, Empty, Field, Input, Loading, Modal, PageHeader, StatusBadge, Table, Tabs, Td, Toggle } from "@/components/ui";
+import { Badge, Button, Card, Empty, Field, Input, Loading, Modal, PageHeader, Select, StatusBadge, Table, Tabs, Td, Toggle } from "@/components/ui";
+import { AgentIcon } from "@/components/AgentIcon";
+import { useMe } from "@/lib/useMe";
 import { ApprovalCard } from "@/components/ApprovalCard";
 import { toast } from "@/components/toast";
 
@@ -49,7 +51,7 @@ function History() {
       <Table head={["Action", "Task", "Decision", "Reviewer", "Note", "When"]}>
         {done.map((a) => (
           <tr key={a.id} className="hover:bg-surface-2/40">
-            <Td><Link to={`/approvals/${a.id}`} className="font-mono text-xs hover:text-accent">{a.tool_name}</Link></Td>
+            <Td><Link to={`/inbox/${a.id}`} className="font-mono text-xs hover:text-accent">{a.tool_name}</Link></Td>
             <Td className="max-w-xs truncate text-muted">{a.task_prompt}</Td>
             <Td><StatusBadge status={a.status} /></Td>
             <Td className="text-muted">{a.reviewer_email ?? "—"}</Td>
@@ -106,15 +108,59 @@ function Rules() {
 }
 
 export default function Approvals() {
-  const [tab, setTab] = useState<"inbox" | "history" | "rules">("inbox");
+  const [tab, setTab] = useState<"inbox" | "history" | "rules" | "policies">("inbox");
+  const pending = useQuery({ queryKey: ["approvals", "pending"], queryFn: () => get("/approvals/pending/") });
+  const n = asList(pending.data).length;
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
-      <PageHeader title="Approvals" subtitle="Review actions your agents want to take before they happen." />
-      <Tabs value={tab} onChange={setTab} tabs={[{ value: "inbox", label: "Inbox" }, { value: "history", label: "History" }, { value: "rules", label: "Rules" }]} />
+      <PageHeader title="Inbox" subtitle={n ? `${n} action${n === 1 ? "" : "s"} awaiting approval` : "Nothing needs your approval"} />
+      <Tabs value={tab} onChange={setTab} tabs={[{ value: "inbox", label: "Awaiting approval" }, { value: "history", label: "History" }, { value: "rules", label: "Tool rules" }, { value: "policies", label: "Who approves" }]} />
       {tab === "inbox" && <Inbox />}
       {tab === "history" && <History />}
       {tab === "rules" && <Rules />}
+      {tab === "policies" && <Policies />}
     </div>
+  );
+}
+
+/* Per-agent approval policy: who may approve that agent's actions (Admin only edits). */
+const POLICY_AGENTS = ["email", "communication", "finance", "document", "calendar", "crm", "workflow", "reporting", "compliance", "qa", "research", "custom"];
+function Policies() {
+  const qc = useQueryClient();
+  const me = useMe();
+  const q = useQuery({ queryKey: ["approvals", "policies"], queryFn: () => get("/approvals/policies/") });
+  const byType: Record<string, any> = Object.fromEntries(asList(q.data?.policies).map((p: any) => [p.agent_type, p]));
+  const inv = () => qc.invalidateQueries({ queryKey: ["approvals", "policies"] });
+  const set = useMutation({
+    mutationFn: ({ agent_type, approver }: { agent_type: string; approver: string }) =>
+      approver === "default" ? del(`/approvals/policies/${byType[agent_type].id}/`) : post("/approvals/policies/", { agent_type, approver }),
+    onSuccess: () => { toast.ok("Policy saved"); inv(); },
+    onError: (e) => toast.err(errMsg(e)),
+  });
+  if (q.isLoading) return <Loading />;
+  return (
+    <>
+      <p className="mb-4 text-sm text-muted">Choose who may approve each agent's actions. Agents without a policy default to <span className="font-medium text-fg">Manager or Admin</span>. A Manager only approves tasks of Members assigned to them, and nobody but the Admin approves their own task.</p>
+      <Card className="divide-y divide-border">
+        {POLICY_AGENTS.map((t) => {
+          const p = byType[t];
+          return (
+            <div key={t} className="flex items-center gap-3 px-5 py-3">
+              <AgentIcon type={t} size="sm" />
+              <p className="flex-1 text-sm font-medium capitalize">{t} agent</p>
+              {me.isAdmin ? (
+                <Select value={p?.approver ?? "default"} onChange={(e) => set.mutate({ agent_type: t, approver: e.target.value })} className="h-8 text-xs">
+                  <option value="default">Default (Manager or Admin)</option>
+                  <option value="admin_or_manager">Manager or Admin</option>
+                  <option value="admin">Admin only</option>
+                </Select>
+              ) : <Badge tone={p?.approver === "admin" ? "accent" : "neutral"}>{p?.approver_label ?? "Manager or Admin"}</Badge>}
+            </div>
+          );
+        })}
+      </Card>
+      {!me.isAdmin && <p className="mt-3 text-xs text-muted">Only the Admin can change approval policies.</p>}
+    </>
   );
 }
 
@@ -123,7 +169,7 @@ export function ApprovalDetail() {
   const q = useQuery<Approval>({ queryKey: ["approval", id], queryFn: () => get(`/approvals/${id}/`) });
   return (
     <div className="mx-auto max-w-3xl p-4 sm:p-6 lg:p-8">
-      <Link to="/approvals" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-fg"><ArrowLeft className="size-4" /> Approvals</Link>
+      <Link to="/inbox" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-fg"><ArrowLeft className="size-4" /> Inbox</Link>
       {q.data?.task_prompt && <p className="mb-4 text-sm text-muted">Task: <span className="text-fg">{q.data.task_prompt}</span></p>}
       {id && <ApprovalCard approvalId={id} />}
       {q.data?.task && <Link to={`/chat?task=${q.data.task}`} className="mt-3 inline-block text-xs text-muted hover:text-fg">Open task conversation →</Link>}

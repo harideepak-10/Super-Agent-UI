@@ -30,9 +30,11 @@ export function CommandPalette() {
 
   const hits: Hit[] = useMemo(() => {
     const actions: Hit[] = [
-      { kind: "action", id: "new-chat", title: "New chat", sub: "Start a task with an agent", to: "/chat" },
-      { kind: "action", id: "library", title: "Browse agent library", to: "/agents/library" },
-      { kind: "action", id: "approvals", title: "Open approvals inbox", to: "/approvals" },
+      { kind: "action", id: "new-task", title: "New task", sub: "Tell your agents what to do", to: "/tasks/new" },
+      { kind: "action", id: "inbox", title: "Open inbox", sub: "Actions awaiting approval", to: "/inbox" },
+      { kind: "action", id: "business", title: "Business Hub", sub: "Dashboards from your data", to: "/business" },
+      { kind: "action", id: "crm", title: "CRM pipeline", sub: "Deals and follow-ups", to: "/crm" },
+      { kind: "action", id: "library", title: "Hire an agent", sub: "Agent marketplace", to: "/agents/library" },
     ];
     if (dq.trim().length < 2) return actions;
     const d = res.data ?? {};

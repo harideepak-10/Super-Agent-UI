@@ -1,11 +1,11 @@
-import { Bot, Mail, Calendar, FileText, GitBranch, Search, Wallet, ShieldCheck, ListChecks, Workflow, MessageSquare, BarChart3 } from "lucide-react";
+import { Handshake, Bot, Mail, Calendar, FileText, GitBranch, Search, Wallet, ShieldCheck, ListChecks, Workflow, MessageSquare, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const MAP: Record<string, [any, string]> = {
   email: [Mail, "text-sky-400 bg-sky-400/10"],
   calendar: [Calendar, "text-amber-400 bg-amber-400/10"],
   document: [FileText, "text-emerald-400 bg-emerald-400/10"],
-  orchestrator: [GitBranch, "text-violet-400 bg-violet-400/10"],
+  orchestrator: [GitBranch, "text-[#1a6fff] bg-[#1a6fff]/10"],
   research: [Search, "text-cyan-400 bg-cyan-400/10"],
   finance: [Wallet, "text-lime-400 bg-lime-400/10"],
   compliance: [ShieldCheck, "text-rose-400 bg-rose-400/10"],
@@ -13,6 +13,7 @@ const MAP: Record<string, [any, string]> = {
   workflow: [Workflow, "text-fuchsia-400 bg-fuchsia-400/10"],
   communication: [MessageSquare, "text-teal-400 bg-teal-400/10"],
   reporting: [BarChart3, "text-indigo-400 bg-indigo-400/10"],
+  crm: [Handshake, "text-pink-500 bg-pink-500/10"],
 };
 
 export function AgentIcon({ type, className, size = "md" }: { type?: string; className?: string; size?: "sm" | "md" | "lg" }) {

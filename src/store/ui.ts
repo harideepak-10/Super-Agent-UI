@@ -13,7 +13,7 @@ type UI = {
 export const useUI = create<UI>()(
   persist(
     (set) => ({
-      theme: "dark",
+      theme: "light",
       sidebarOpen: false,
       searchOpen: false,
       toggleTheme: () => set((s) => ({ theme: s.theme === "dark" ? "light" : "dark" })),

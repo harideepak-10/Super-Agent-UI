@@ -18,33 +18,47 @@
   --color-warn: var(--warn);
   --color-err: var(--err);
   --color-info: var(--info);
+  --color-accent-2: var(--accent-2);
+  --color-accent-deep: var(--accent-deep);
+  --color-navy: var(--navy);
+  --color-navy-2: var(--navy-2);
+  --shadow-card: var(--shadow);
 }
 
 :root {
-  --bg: #f7f7f9;
+  /* light — mirrors the Flutter app (screenBg #E8ECF2, cards white, brand blue #1A6FFF) */
+  --bg: #eef1f6;
   --surface: #ffffff;
-  --surface-2: #f1f1f4;
-  --border: #e4e4ea;
-  --fg: #16161d;
-  --muted: #6b6b7b;
-  --accent: #6d4aff;
-  --ok: #15a34a;
-  --warn: #d97706;
+  --surface-2: #f4f6fa;
+  --border: #e3e7ee;
+  --fg: #1c1e21;
+  --muted: #6b7280;
+  --accent: #1a6fff;
+  --accent-2: #5a9aff;
+  --accent-deep: #1254d4;
+  --ok: #16a34a;
+  --warn: #ea580c;
   --err: #dc2626;
-  --info: #2563eb;
+  --info: #0ea5e9;
+  --navy: #000e28;
+  --navy-2: #021840;
+  --shadow: 0 1px 2px rgb(16 24 40 / .04), 0 4px 16px -4px rgb(16 24 40 / .08);
 }
 .dark {
-  --bg: #0c0c10;
-  --surface: #14141a;
-  --surface-2: #1c1c24;
-  --border: #26262f;
+  --bg: #111115;
+  --surface: #1a1c26;
+  --surface-2: #22242f;
+  --border: #2a2c38;
   --fg: #ececf1;
-  --muted: #8b8b9a;
-  --accent: #8b6dff;
+  --muted: #8a8fa3;
+  --accent: #3d85ff;
+  --accent-2: #7aaaff;
+  --accent-deep: #1a6fff;
   --ok: #22c55e;
   --warn: #f59e0b;
   --err: #ef4444;
-  --info: #3b82f6;
+  --info: #38bdf8;
+  --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 8px 24px -8px rgb(0 0 0 / .5);
 }
 
 html, body, #root { height: 100%; }
@@ -62,13 +76,40 @@ body {
 @keyframes pulse-dot { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
 .pulse-dot { animation: pulse-dot 1.4s ease-in-out infinite; }
 
-/* ── splash ── */
-@keyframes splash-pop { 0% { transform: scale(.6); opacity: 0 } 60% { transform: scale(1.06); opacity: 1 } 100% { transform: scale(1) } }
-@keyframes splash-ring { 0% { transform: scale(.85); opacity: .9 } 100% { transform: scale(1.9); opacity: 0 } }
+/* brand gradient used for primary actions (Flutter: primaryDark → gradientBlue) */
+.bg-brand { background-image: linear-gradient(135deg, var(--accent-deep), var(--accent-2)); }
+.text-brand { background-image: linear-gradient(135deg, var(--accent-deep), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+/* ── splash (Flutter SplashScreen: black, grid lines, progress bar) ── */
+.splash-grid {
+  background-color: #000;
+  background-image:
+    linear-gradient(#1a2332 1px, transparent 1px),
+    linear-gradient(90deg, #1a2332 1px, transparent 1px);
+  background-size: 44px 44px;
+  background-position: center;
+}
+@keyframes splash-pop { 0% { transform: scale(.7); opacity: 0 } 100% { transform: scale(1); opacity: 1 } }
+@keyframes splash-orbit { to { transform: rotate(360deg) } }
 @keyframes splash-fade { from { transform: translateY(8px); opacity: 0 } to { transform: none; opacity: 1 } }
-@keyframes splash-bar { 0% { transform: translateX(-100%) } 100% { transform: translateX(300%) } }
-.splash-logo { animation: splash-pop .7s cubic-bezier(.2,.9,.3,1.2) both; }
-.splash-ring { animation: splash-ring 1.8s ease-out infinite; }
-.splash-fade { animation: splash-fade .6s ease-out .25s both; }
-.splash-bar { animation: splash-bar 1.2s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) { .splash-logo, .splash-ring, .splash-fade, .splash-bar { animation: none; } }
+@keyframes splash-fill { from { width: 0 } to { width: 100% } }
+@keyframes splash-glow { 0%,100% { opacity: .55 } 50% { opacity: 1 } }
+.splash-logo { animation: splash-pop .8s cubic-bezier(.2,.9,.3,1.1) both; }
+.splash-orbit { animation: splash-orbit 6s linear infinite; }
+.splash-fade { animation: splash-fade .7s ease-out both; }
+.splash-fill { animation: splash-fill 1.6s cubic-bezier(.4,0,.2,1) forwards; }
+.splash-glow { animation: splash-glow 2.4s ease-in-out infinite; }
+
+/* ── onboarding / auth backdrop (Flutter authNavy → authNavyLight with glow blob) ── */
+.auth-bg { background: linear-gradient(135deg, #000e28 0%, #021840 55%, #010a1c 100%); }
+@keyframes blob { 0%,100% { transform: translate(0,0) scale(1) } 50% { transform: translate(40px,-30px) scale(1.12) } }
+.blob { animation: blob 12s ease-in-out infinite; }
+@keyframes float-y { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-12px) } }
+.float-y { animation: float-y 5s ease-in-out infinite; }
+@keyframes slide-in { from { opacity: 0; transform: translateX(24px) } to { opacity: 1; transform: none } }
+.slide-in { animation: slide-in .5s cubic-bezier(.2,.8,.2,1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-logo, .splash-orbit, .splash-fade, .splash-fill, .splash-glow, .blob, .float-y, .slide-in, .pulse-dot { animation: none !important; }
+  .splash-fill { width: 100%; }
+}

@@ -21,7 +21,7 @@ export function AgentLibrary() {
   const activate = useMutation({
     mutationFn: (id: number) => post(`/agents/templates/${id}/activate/`),
     onSuccess: (d: any) => {
-      toast.ok("Agent activated"); setPreview(null);
+      toast.ok("Agent hired"); setPreview(null);
       qc.invalidateQueries({ queryKey: ["agent-templates"] }); qc.invalidateQueries({ queryKey: ["agents"] });
       const id = d?.id ?? d?.agent?.id ?? d?.agent_id; if (id) nav(`/agents/${id}`);
     },
@@ -32,7 +32,7 @@ export function AgentLibrary() {
 
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
-      <PageHeader title="Agent library" subtitle="Ready-made agents. Activate one and it's available in chat immediately."
+      <PageHeader title="Agent marketplace" subtitle="Ready-made agents, free to add. Hire one and it's ready for tasks immediately."
         actions={<Button onClick={() => syncAll.mutate()} loading={syncAll.isPending}><RefreshCw className="size-4" /> Sync all</Button>} />
       {q.isLoading ? <Loading /> : q.error ? <ErrorBox error={q.error} /> : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -52,7 +52,7 @@ export function AgentLibrary() {
                 {t.already_added ? (
                   <Link to={`/agents/${t.agent_id}`} className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-ok/30 bg-ok/10 text-sm font-medium text-ok"><Check className="size-4" /> Added</Link>
                 ) : (
-                  <Button variant="primary" className="flex-1" loading={activate.isPending && activate.variables === t.id} onClick={() => activate.mutate(t.id)}>Activate</Button>
+                  <Button variant="primary" className="flex-1" loading={activate.isPending && activate.variables === t.id} onClick={() => activate.mutate(t.id)}>Hire</Button>
                 )}
                 <Button onClick={() => setPreview(t)}>Details</Button>
               </div>
@@ -76,7 +76,7 @@ export function AgentLibrary() {
               </div>
             </div>
             <p className="text-xs text-muted">Model: <span className="font-mono">{preview.llm_model}</span></p>
-            {!preview.already_added && <Button variant="primary" className="w-full" loading={activate.isPending} onClick={() => activate.mutate(preview.id)}>Activate {preview.name}</Button>}
+            {!preview.already_added && <Button variant="primary" className="w-full" loading={activate.isPending} onClick={() => activate.mutate(preview.id)}>Hire {preview.name}</Button>}
           </div>
         )}
       </Modal>
@@ -90,13 +90,13 @@ export function AgentsList() {
   const [creating, setCreating] = useState(false);
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
-      <PageHeader title="My agents" subtitle="Agents active in your workspace."
+      <PageHeader title="Agents" subtitle="Your AI workforce. Hire more from the marketplace or build your own."
         actions={<>
-          <Link to="/agents/library"><Button>Browse library</Button></Link>
-          <Button variant="primary" onClick={() => setCreating(true)}><Plus className="size-4" /> Custom agent</Button>
+          <Link to="/agents/library"><Button>Marketplace</Button></Link>
+          <Button variant="primary" onClick={() => setCreating(true)}><Plus className="size-4" /> Build your own</Button>
         </>} />
       {q.isLoading ? <Loading /> : q.error ? <ErrorBox error={q.error} /> : !q.data?.length ? (
-        <Card><Empty icon={<Bot className="size-8" />} title="No agents yet" text="Activate a ready-made agent from the library, or build your own." action={<Link to="/agents/library"><Button variant="primary">Open library</Button></Link>} /></Card>
+        <Card><Empty icon={<Bot className="size-8" />} title="No agents yet" text="Hire one from the marketplace to get started, or build your own." action={<Link to="/agents/library"><Button variant="primary">Hire an agent</Button></Link>} /></Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {q.data.map((a) => (

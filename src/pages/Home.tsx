@@ -1,21 +1,22 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, CheckCircle2, ShieldAlert, Bot, Wallet, ListTodo, X, Zap } from "lucide-react";
+import { ArrowRight, CheckCircle2, ShieldAlert, Bot, Wallet, ListTodo, X, Zap, BarChart3, CalendarClock } from "lucide-react";
+import { KpiCard } from "@/components/Widgets";
 import { get, post } from "@/api/client";
 import { asList, cn, errMsg } from "@/lib/utils";
 import { Card, ErrorBox, Loading, StatusBadge } from "@/components/ui";
 import { AgentIcon } from "@/components/AgentIcon";
 import { toast } from "@/components/toast";
 
-function Stat({ icon: Icon, label, value, sub, tone, to }: { icon: any; label: string; value: string | number; sub?: string; tone?: "warn" | "err" | "ok"; to?: string }) {
+function Stat({ icon: Icon, label, value, sub, tone, to, chip }: { icon: any; label: string; value: string | number; sub?: string; tone?: "warn" | "err" | "ok"; to?: string; chip: string }) {
   const body = (
-    <Card className="h-full p-4 transition-colors hover:border-muted/40">
-      <div className="flex items-center justify-between text-muted">
-        <span className="text-xs font-medium">{label}</span>
-        <Icon className={cn("size-4", tone === "warn" && "text-warn", tone === "err" && "text-err", tone === "ok" && "text-ok")} />
+    <Card className="h-full p-5 transition hover:-translate-y-0.5 hover:border-accent/30">
+      <div className="flex items-center justify-between">
+        <span className="text-[13px] font-medium text-muted">{label}</span>
+        <span className={cn("grid size-9 place-items-center rounded-xl", chip)}><Icon className="size-[18px]" /></span>
       </div>
-      <p className="mt-3 text-2xl font-semibold tracking-tight">{value}</p>
-      {sub && <p className={cn("mt-1 text-xs", tone ? `text-${tone}` : "text-muted")}>{sub}</p>}
+      <p className="mt-3 text-3xl font-bold tracking-tight">{value}</p>
+      {sub && <p className={cn("mt-1 text-xs", tone === "warn" ? "text-warn" : tone === "err" ? "text-err" : tone === "ok" ? "text-ok" : "text-muted")}>{sub}</p>}
     </Card>
   );
   return to ? <Link to={to}>{body}</Link> : body;
@@ -45,21 +46,25 @@ export default function Home() {
 
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
-      <div className="mb-8">
-        <p className="text-sm text-muted">{d.greeting?.day}, {d.greeting?.date && new Date(d.greeting.date).toLocaleDateString(undefined, { month: "long", day: "numeric" })}</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{d.greeting?.full_greeting ?? "Welcome"}</h1>
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-[13px] text-muted">{d.greeting?.day}, {d.greeting?.date && new Date(d.greeting.date).toLocaleDateString(undefined, { month: "long", day: "numeric" })}</p>
+          <p className="mt-1 text-2xl text-muted">Good {d.greeting?.time_of_day ?? "day"},</p>
+          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{d.greeting?.name ?? "there"} 👋</h1>
+        </div>
+        <Link to="/tasks/new" className="bg-brand hidden h-11 items-center gap-2 rounded-xl px-5 text-sm font-semibold text-white shadow-[0_10px_24px_-10px_var(--accent)] hover:brightness-110 sm:inline-flex"><Zap className="size-4" /> New Task</Link>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat icon={ListTodo} label="Tasks today" value={s.tasks_today?.count ?? 0} sub={s.tasks_today?.delta_label} to="/chat" />
-        <Stat icon={ShieldAlert} label="Need approval" value={s.need_approval?.count ?? 0} sub={s.need_approval?.has_urgent ? "Waiting on you" : "Nothing pending"} tone={s.need_approval?.has_urgent ? "warn" : undefined} to="/approvals" />
-        <Stat icon={Bot} label="Agents active" value={s.agents_running?.total_active ?? 0} sub={s.agents_running?.status_label} tone={s.agents_running?.all_healthy === false ? "err" : "ok"} to="/agents" />
-        <Stat icon={Wallet} label="Cost today" value={`€${Number(s.cost_today?.amount ?? 0).toFixed(2)}`} sub={s.cost_today?.limit ? `${s.cost_today.percentage_used ?? 0}% of €${s.cost_today.limit} ${s.cost_today.limit_period ?? ""}` : "No budget set"} tone={s.cost_today?.alert_status === "critical" ? "err" : s.cost_today?.alert_status === "warning" ? "warn" : undefined} to="/costs" />
+        <Stat chip="bg-accent/10 text-accent" icon={ListTodo} label="Tasks today" value={s.tasks_today?.count ?? 0} sub={s.tasks_today?.delta_label ?? "No change from yesterday"} to="/tasks" />
+        <Stat chip="bg-emerald-500/10 text-emerald-500" icon={Bot} label="Agents running" value={s.agents_running?.total_active ?? 0} sub={s.agents_running?.status_label ?? "No agents yet"} tone={s.agents_running?.all_healthy === false ? "err" : "ok"} to="/agents" />
+        <Stat chip="bg-orange-500/10 text-orange-500" icon={ShieldAlert} label="Need approval" value={s.need_approval?.count ?? 0} sub={(s.need_approval?.count ?? 0) > 0 ? "Tap to review" : "All caught up"} tone={s.need_approval?.has_urgent ? "warn" : undefined} to="/inbox" />
+        <Stat chip="bg-violet-500/10 text-violet-500" icon={Wallet} label="Cost today" value={`€${Number(s.cost_today?.amount ?? 0).toFixed(2)}`} sub={s.cost_today?.limit ? `${s.cost_today.percentage_used ?? 0}% of €${s.cost_today.limit} ${s.cost_today.limit_period ?? ""}` : "No budget set"} tone={s.cost_today?.alert_status === "critical" ? "err" : s.cost_today?.alert_status === "warning" ? "warn" : undefined} to="/costs" />
       </div>
 
       {quickTasks.length > 0 && (
         <div className="mt-8">
-          <p className="mb-3 text-sm font-medium">Quick tasks</p>
+          <p className="mb-3 text-[17px] font-semibold">Quick start</p>
           <div className="flex flex-wrap gap-2">
             {quickTasks.map((q: any) => (
               <div key={q.id ?? q.prompt} className="group flex items-center rounded-full border border-border bg-surface text-sm hover:border-accent/50">
@@ -73,11 +78,13 @@ export default function Home() {
         </div>
       )}
 
+      <Snapshots />
+
       <div className="mt-8 grid gap-6 lg:grid-cols-5">
         <div className="lg:col-span-3">
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-medium">Recent activity</p>
-            <Link to="/chat" className="flex items-center gap-1 text-xs text-muted hover:text-fg">All chats <ArrowRight className="size-3" /></Link>
+            <p className="text-[17px] font-semibold">Recent activity</p>
+            <Link to="/tasks" className="flex items-center gap-1 text-xs font-medium text-accent hover:underline">View all <ArrowRight className="size-3" /></Link>
           </div>
           <Card className="divide-y divide-border">
             {asList(d.recent_activity).length === 0 && <p className="px-4 py-10 text-center text-sm text-muted">No activity yet — start a chat to give your agents work.</p>}
@@ -99,8 +106,8 @@ export default function Home() {
 
         <div className="lg:col-span-2">
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-medium">Waiting for you</p>
-            <Link to="/approvals" className="flex items-center gap-1 text-xs text-muted hover:text-fg">Inbox <ArrowRight className="size-3" /></Link>
+            <p className="text-[17px] font-semibold">Waiting for you</p>
+            <Link to="/inbox" className="flex items-center gap-1 text-xs text-muted hover:text-fg">Inbox <ArrowRight className="size-3" /></Link>
           </div>
           <div className="space-y-3">
             {asList(d.urgent_approvals).length === 0 && (
@@ -123,13 +130,52 @@ export default function Home() {
                 <div className="mt-3 flex gap-2">
                   <button onClick={() => decide.mutate({ id: a.id, approved: true })} className="flex-1 rounded-lg bg-ok py-1.5 text-xs font-medium text-white hover:brightness-110 cursor-pointer">Approve</button>
                   <button onClick={() => decide.mutate({ id: a.id, approved: false })} className="flex-1 rounded-lg border border-border py-1.5 text-xs font-medium hover:bg-surface-2 cursor-pointer">Reject</button>
-                  <Link to={`/approvals/${a.id}`} className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-surface-2">Review</Link>
+                  <Link to={`/inbox/${a.id}`} className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-surface-2">Review</Link>
                 </div>
               </Card>
             ))}
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Business pulse + CRM follow-ups due — only shown when that data exists. */
+function Snapshots() {
+  const biz = useQuery({ queryKey: ["business", "dashboard", "30d"], queryFn: () => get("/business/dashboard/", { period: "30d" }), retry: false });
+  const fu = useQuery({ queryKey: ["crm", "followups", "open", "week"], queryFn: () => get("/crm/follow-ups/", { status: "open", due: "week" }), retry: false });
+  const page = asList(biz.data?.pages).find((p: any) => !p.empty && asList(p.kpis).length);
+  const due = asList(fu.data);
+  if (!page && !due.length) return null;
+  return (
+    <div className="mt-8 grid gap-6 lg:grid-cols-5">
+      {page && (
+        <div className={due.length ? "lg:col-span-3" : "lg:col-span-5"}>
+          <div className="mb-3 flex items-center justify-between">
+            <p className="flex min-w-0 items-center gap-2 text-[17px] font-semibold"><BarChart3 className="size-4 shrink-0 text-accent" /> <span className="truncate">{page.label}</span> <span className="hidden shrink-0 text-xs font-normal text-muted sm:inline">· last 30 days</span></p>
+            <Link to="/business" className="flex shrink-0 items-center gap-1 text-xs font-medium text-accent hover:underline">Open <ArrowRight className="size-3" /></Link>
+          </div>
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">{asList(page.kpis).map((w: any) => <KpiCard key={w.id} w={w} currency={biz.data.currency} />)}</div>
+        </div>
+      )}
+      {due.length > 0 && (
+        <div className={page ? "lg:col-span-2" : "lg:col-span-5"}>
+          <div className="mb-3 flex items-center justify-between">
+            <p className="flex items-center gap-2 text-[17px] font-semibold"><CalendarClock className="size-4 text-accent" /> Follow-ups this week</p>
+            <Link to="/crm" className="flex items-center gap-1 text-xs font-medium text-accent hover:underline">CRM <ArrowRight className="size-3" /></Link>
+          </div>
+          <Card className="divide-y divide-border">
+            {due.slice(0, 4).map((f: any) => (
+              <Link key={f.id} to="/crm" className="flex items-center gap-3 px-4 py-3 hover:bg-surface-2/50">
+                <span className={cn("size-2 shrink-0 rounded-full", f.overdue ? "bg-err" : "bg-accent")} />
+                <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{f.customer_name || f.customer_email}</p><p className="truncate text-xs text-muted">{f.note}</p></div>
+                <span className={cn("text-xs", f.overdue ? "text-err" : "text-muted")}>{new Date(f.due_date).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
+              </Link>
+            ))}
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
