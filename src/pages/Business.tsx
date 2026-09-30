@@ -13,6 +13,7 @@ import { KpiCard, WidgetCard, type Widget } from "@/components/Widgets";
 import { AgentIcon } from "@/components/AgentIcon";
 import { toast } from "@/components/toast";
 import { ENTITY_ICON, RecordTypePicker, RecordUploader } from "@/components/TrackRecords";
+import { BusinessWizard } from "@/components/BusinessWizard";
 
 const PERIODS = [
   ["all", "All time"], ["today", "Today"], ["this_week", "This week"], ["30d", "Last 30 days"], ["this_month", "This month"],
@@ -87,40 +88,26 @@ function Stepper({ p, onGo }: { p: any; onGo: (t: string) => void }) {
   );
 }
 
-/* ─────────────── First-run: ask what to track, then upload ─────────────── */
+/* ─────────────── First run: ask about the business, what to track, then upload ─────────────── */
 function Welcome() {
   const me = useMe();
-  const [types, setTypes] = useState<string[]>([]);
-  const [ready, setReady] = useState(false);
+  const [, setParams] = useSearchParams();
   return (
     <div className="mx-auto max-w-5xl p-4 sm:p-6 lg:p-8">
-      <div className="relative mb-6 overflow-hidden rounded-3xl bg-navy p-8 text-white sm:p-10">
+      <div className="relative mb-6 overflow-hidden rounded-3xl bg-navy p-7 text-white sm:p-9">
         <div className="blob pointer-events-none absolute -top-24 -right-24 size-80 rounded-full bg-[#1a6fff]/40 blur-3xl" />
         <p className="relative text-xs font-semibold tracking-[0.25em] text-[#7aaaff]">BUSINESS HUB</p>
-        <h1 className="relative mt-3 max-w-2xl text-3xl font-extrabold tracking-tight sm:text-4xl">Which business records do you want to track?</h1>
-        <p className="relative mt-3 max-w-xl text-white/70">Pick the records you keep, upload the spreadsheet, and we'll turn it into live dashboards and recommend the agents that fit your business.</p>
-        <div className="relative mt-6 flex flex-wrap gap-4 text-sm text-white/80">
-          <span className="flex items-center gap-1.5"><Sparkles className="size-4 text-[#7aaaff]" /> AI detects your data</span>
+        <h1 className="relative mt-2 max-w-2xl text-3xl font-extrabold tracking-tight sm:text-4xl">Let's set up your business dashboard.</h1>
+        <p className="relative mt-2 max-w-xl text-white/70">Tell us about your business and the records you keep — Excel, PDF reports, Word files, anything. We'll build live dashboards and recommend the agents that fit.</p>
+        <div className="relative mt-5 flex flex-wrap gap-4 text-sm text-white/80">
+          <span className="flex items-center gap-1.5"><Sparkles className="size-4 text-[#7aaaff]" /> AI reads your files</span>
           <span className="flex items-center gap-1.5"><BarChart3 className="size-4 text-[#7aaaff]" /> Instant dashboards</span>
           <span className="flex items-center gap-1.5"><Rocket className="size-4 text-[#7aaaff]" /> Recommended agents</span>
         </div>
       </div>
-      {!me.canManage ? (
-        <Card><Empty icon={<UploadCloud className="size-8" />} title="No business records yet" text="Ask your Admin or a Manager to upload your business records." /></Card>
-      ) : !ready ? (
-        <>
-          <RecordTypePicker value={types} onChange={setTypes} />
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-muted">{types.length ? `${types.length} selected — you can upload them in one Excel file or one CSV at a time.` : "Not sure? Just upload your file and we'll detect what's in it."}</p>
-            <Button variant="primary" onClick={() => setReady(true)}>{types.length ? "Continue to upload" : "Skip, just upload"} <ArrowRight className="size-4" /></Button>
-          </div>
-        </>
-      ) : (
-        <div className="mx-auto max-w-2xl">
-          <RecordUploader selected={types} />
-          <div className="mt-4 text-center"><Button variant="ghost" onClick={() => setReady(false)}><ArrowLeft className="size-4" /> Change record types</Button></div>
-        </div>
-      )}
+      {me.canManage
+        ? <BusinessWizard framed onDone={() => setParams({ tab: "data" })} />
+        : <Card><Empty icon={<UploadCloud className="size-8" />} title="No business records yet" text="Ask your Admin or a Manager to set up the Business Hub." /></Card>}
     </div>
   );
 }
@@ -247,7 +234,7 @@ function AddRecords() {
   if (!open) return (
     <Card className="mb-4 flex flex-wrap items-center gap-4 p-4">
       <div className="grid size-10 place-items-center rounded-xl bg-accent/10 text-accent"><UploadCloud className="size-5" /></div>
-      <div className="min-w-0 flex-1"><p className="text-sm font-semibold">Track more records</p><p className="text-xs text-muted">Add another spreadsheet — e.g. invoices, expenses or inventory — to get more dashboards.</p></div>
+      <div className="min-w-0 flex-1"><p className="text-sm font-semibold">Track more records</p><p className="text-xs text-muted">Add more files — Excel, CSV, PDF reports or Word — e.g. invoices, expenses or inventory, to get more dashboards.</p></div>
       <Button variant="primary" onClick={() => setOpen(true)}>Add records</Button>
     </Card>
   );

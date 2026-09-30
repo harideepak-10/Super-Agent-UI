@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, CheckCircle2, ShieldAlert, Bot, Wallet, ListTodo, X, Zap, BarChart3, CalendarClock } from "lucide-react";
 import { KpiCard } from "@/components/Widgets";
@@ -8,7 +8,7 @@ import { useAuth } from "@/store/auth";
 import { useState } from "react";
 import { get, post } from "@/api/client";
 import { asList, cn, errMsg } from "@/lib/utils";
-import { Card, ErrorBox, Loading, StatusBadge } from "@/components/ui";
+import { Card, ErrorBox, Loading } from "@/components/ui";
 import { AgentIcon } from "@/components/AgentIcon";
 import { toast } from "@/components/toast";
 
@@ -27,26 +27,19 @@ function Stat({ icon: Icon, label, value, sub, tone, to, chip }: { icon: any; la
 }
 
 export default function Home() {
-  const nav = useNavigate();
   const qc = useQueryClient();
   const dash = useQuery({ queryKey: ["dashboard"], queryFn: () => get("/dashboard/"), refetchInterval: 30000 });
-  const quick = useQuery({ queryKey: ["quick-tasks"], queryFn: () => get("/quick-tasks/") });
 
   const decide = useMutation({
     mutationFn: ({ id, approved }: { id: string; approved: boolean }) => post(`/approvals/${id}/decide/`, { approved, note: "" }),
     onSuccess: (_d, v) => { toast.ok(v.approved ? "Approved" : "Rejected"); qc.invalidateQueries({ queryKey: ["dashboard"] }); qc.invalidateQueries({ queryKey: ["approvals"] }); },
     onError: (e) => toast.err(errMsg(e)),
   });
-  const removeQuick = useMutation({
-    mutationFn: (prompt: string) => post("/quick-tasks/remove/", { prompt }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["quick-tasks"] }),
-  });
 
   if (dash.isLoading) return <Loading />;
   if (dash.error) return <div className="p-6"><ErrorBox error={dash.error} /></div>;
   const d = dash.data ?? {};
   const s = d.stats ?? {};
-  const quickTasks = asList(quick.data);
 
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
@@ -66,57 +59,18 @@ export default function Home() {
         <Stat chip="bg-violet-500/10 text-violet-500" icon={Wallet} label="Cost today" value={`€${Number(s.cost_today?.amount ?? 0).toFixed(2)}`} sub={s.cost_today?.limit ? `${s.cost_today.percentage_used ?? 0}% of €${s.cost_today.limit} ${s.cost_today.limit_period ?? ""}` : "No budget set"} tone={s.cost_today?.alert_status === "critical" ? "err" : s.cost_today?.alert_status === "warning" ? "warn" : undefined} to="/costs" />
       </div>
 
-      {quickTasks.length > 0 && (
-        <div className="mt-8">
-          <p className="mb-3 text-[17px] font-semibold">Quick start</p>
-          <div className="flex flex-wrap gap-2">
-            {quickTasks.map((q: any) => (
-              <div key={q.id ?? q.prompt} className="group flex items-center rounded-full border border-border bg-surface text-sm hover:border-accent/50">
-                <button onClick={() => nav("/chat", { state: { prompt: q.prompt ?? q.title } })} className="flex items-center gap-1.5 py-1.5 pr-1 pl-3 cursor-pointer">
-                  <Zap className="size-3.5 text-accent" /> {q.title ?? q.label ?? q.prompt}
-                </button>
-                {q.prompt && <button title="Hide" onClick={() => removeQuick.mutate(q.prompt)} className="px-2 text-muted opacity-0 group-hover:opacity-100 cursor-pointer"><X className="size-3" /></button>}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       <TrackRecordsBanner />
       <Snapshots />
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-5">
-        <div className="lg:col-span-3">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-[17px] font-semibold">Recent activity</p>
-            <Link to="/tasks" className="flex items-center gap-1 text-xs font-medium text-accent hover:underline">View all <ArrowRight className="size-3" /></Link>
-          </div>
-          <Card className="divide-y divide-border">
-            {asList(d.recent_activity).length === 0 && <p className="px-4 py-10 text-center text-sm text-muted">No activity yet — start a chat to give your agents work.</p>}
-            {asList(d.recent_activity).map((a: any) => (
-              <Link key={a.task_id} to={`/chat?task=${a.task_id}`} className="flex items-start gap-3 px-4 py-3.5 hover:bg-surface-2/50">
-                <AgentIcon type={a.agent_type} size="sm" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm"><span className="font-medium">{a.agent_name}</span> <span className="text-muted">{a.verb}</span></p>
-                  <p className="truncate text-xs text-muted">{a.summary}</p>
-                </div>
-                <div className="flex shrink-0 flex-col items-end gap-1">
-                  <StatusBadge status={a.status} />
-                  <span className="text-[11px] text-muted">{a.time_ago}</span>
-                </div>
-              </Link>
-            ))}
-          </Card>
-        </div>
-
-        <div className="lg:col-span-2">
+      <div className="mt-8">
+        <div>
           <div className="mb-3 flex items-center justify-between">
             <p className="text-[17px] font-semibold">Waiting for you</p>
             <Link to="/inbox" className="flex items-center gap-1 text-xs text-muted hover:text-fg">Inbox <ArrowRight className="size-3" /></Link>
           </div>
-          <div className="space-y-3">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {asList(d.urgent_approvals).length === 0 && (
-              <Card className="flex flex-col items-center gap-2 px-4 py-10 text-center">
+              <Card className="flex flex-col items-center gap-2 px-4 py-10 text-center md:col-span-2 xl:col-span-3">
                 <CheckCircle2 className="size-6 text-ok" />
                 <p className="text-sm text-muted">No approvals pending</p>
               </Card>
