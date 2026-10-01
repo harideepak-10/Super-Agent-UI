@@ -4,8 +4,17 @@ import { asList, errMsg } from "./utils";
 import { useMe } from "./useMe";
 import { toast } from "@/components/toast";
 
-export const PHONE_CC_KEY = "superagent-phone-cc";
-export const phoneCc = () => { try { return localStorage.getItem(PHONE_CC_KEY) || "+91"; } catch { return "+91"; } };
+/**
+ * Country calling code used by the backend to turn local 10-digit numbers in
+ * imported records into full WhatsApp numbers. Derived from the business
+ * currency, so nobody has to type it.
+ */
+const CURRENCY_CC: Record<string, string> = {
+  INR: "+91", USD: "+1", CAD: "+1", GBP: "+44", EUR: "+49", AED: "+971", SAR: "+966", QAR: "+974",
+  SGD: "+65", MYR: "+60", AUD: "+61", NZD: "+64", LKR: "+94", NPR: "+977", BDT: "+880", PKR: "+92", ZAR: "+27",
+};
+export const phoneCc = (currency?: string) => CURRENCY_CC[(currency || "").toUpperCase()] ?? "+91";
+try { localStorage.removeItem("superagent-phone-cc"); } catch { /* old manual setting — no longer used */ }
 
 /** Wait for a background import job to finish (polls every 2 s, up to ~3 min). */
 async function waitForJob(id: string) {
@@ -28,7 +37,8 @@ export function useBusinessFinalize() {
   const me = useMe();
 
   const importSheets = async (sheetIds?: string[]) => {
-    const body: any = { default_country_code: phoneCc() };
+    const prof: any = qc.getQueryData(["business", "profile"]);
+    const body: any = { default_country_code: phoneCc(prof?.currency) };
     if (sheetIds?.length) body.sheet_ids = sheetIds;
     const out: any = await post("/business/import/", body);
     const res = out?.job ? await waitForJob(out.job.id) : out;

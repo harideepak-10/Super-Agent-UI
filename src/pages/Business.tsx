@@ -14,7 +14,7 @@ import { AgentIcon } from "@/components/AgentIcon";
 import { toast } from "@/components/toast";
 import { ENTITY_ICON, RecordTypePicker, RecordUploader } from "@/components/TrackRecords";
 import { BusinessWizard } from "@/components/BusinessWizard";
-import { PHONE_CC_KEY, phoneCc, useBusinessFinalize } from "@/lib/businessFlow";
+import { phoneCc, useBusinessFinalize } from "@/lib/businessFlow";
 
 const PERIODS = [
   ["all", "All time"], ["today", "Today"], ["this_week", "This week"], ["30d", "Last 30 days"], ["this_month", "This month"],
@@ -464,7 +464,6 @@ function SetupTab({ profile }: { profile: any }) {
   const f = form ?? { business_type: profile.business_type ?? "", summary: profile.summary ?? "", currency: profile.currency ?? "INR", pages: profile.pages ?? [] };
   const inv = () => { qc.invalidateQueries({ queryKey: ["business"] }); };
   const flow = useBusinessFinalize();
-  const [cc, setCc] = useState(phoneCc());
   const save = useMutation({
     mutationFn: async (confirm: boolean) => {
       if (confirm) return flow.confirmAndImport(form ?? {});
@@ -488,12 +487,9 @@ function SetupTab({ profile }: { profile: any }) {
         <div className="flex items-center justify-between"><p className="font-semibold">Business profile</p><span className="text-xs text-muted">Detected by {profile.analysis_method === "ai" ? "AI" : "rules"}</span></div>
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="sm:col-span-2"><Field label="Business type"><Input disabled={!me.canManage} value={f.business_type} onChange={(e) => setForm({ ...f, business_type: e.target.value })} /></Field></div>
-          <Field label="Currency"><Input disabled={!me.canManage} maxLength={3} value={f.currency} onChange={(e) => setForm({ ...f, currency: e.target.value.toUpperCase() })} /></Field>
+          <Field label="Currency" hint={`Phone numbers in your records use ${phoneCc(f.currency)}`}><Input disabled={!me.canManage} maxLength={3} value={f.currency} onChange={(e) => setForm({ ...f, currency: e.target.value.toUpperCase() })} /></Field>
         </div>
         <Field label="Summary"><Textarea disabled={!me.canManage} rows={3} value={f.summary} onChange={(e) => setForm({ ...f, summary: e.target.value })} /></Field>
-        <Field label="Country code for phone numbers in your records" hint="Used to turn 10-digit numbers into WhatsApp numbers (e.g. 98765 43210 → +91 98765 43210).">
-          <Input className="w-32" value={cc} onChange={(e) => { setCc(e.target.value); try { localStorage.setItem(PHONE_CC_KEY, e.target.value.trim() || "+91"); } catch { /* ignore */ } }} />
-        </Field>
         <div>
           <p className="mb-2 text-xs font-medium text-muted">Dashboard pages</p>
           <div className="grid gap-2 sm:grid-cols-2">
