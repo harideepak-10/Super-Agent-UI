@@ -37,8 +37,8 @@ export function useBusinessFinalize() {
   const me = useMe();
 
   const importSheets = async (sheetIds?: string[]) => {
-    const prof: any = qc.getQueryData(["business", "profile"]);
-    const body: any = { default_country_code: phoneCc(prof?.currency) };
+    // The backend uses the business profile's default_country_code when we don't send one.
+    const body: any = {};
     if (sheetIds?.length) body.sheet_ids = sheetIds;
     const out: any = await post("/business/import/", body);
     const res = out?.job ? await waitForJob(out.job.id) : out;

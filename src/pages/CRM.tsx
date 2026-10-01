@@ -346,7 +346,7 @@ function CustomerOverview({ email, onClose }: { email: string | null; onClose: (
             {ls && L && <div className="text-center"><p className="text-2xl font-bold">{ls.score}</p><Badge tone={L.tone as any}><L.icon className="size-3" />{L.l}</Badge></div>}
           </div>
           {c.interaction_summary && <Card className="p-4 text-sm text-muted">{c.interaction_summary}</Card>}
-          {c.email && <Section title="Channels"><CustomerChannels email={c.email} compact /></Section>}
+          {c.email && <Section title="Channels"><CustomerChannels email={c.email} whatsapp={"whatsapp_number" in c ? c.whatsapp_number : undefined} compact /></Section>}
           <Section title="Deals">
             {!asList(d.deals).length && <p className="text-sm text-muted">No deals yet.</p>}
             {asList(d.deals).map((x: any) => (

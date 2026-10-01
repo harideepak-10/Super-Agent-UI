@@ -40,8 +40,22 @@ function explain(e: any) {
  *  · customers imported with a phone number are linked to WhatsApp automatically
  *  · everyone else gets a one-time invite link (which you can send to their WhatsApp)
  */
-export function CustomerChannels({ email, compact }: { email: string; compact?: boolean }) {
-  const phone = useCustomerPhone(email);
+/** The customer's linked WhatsApp number from customer memory (set at import or when they open the invite link). */
+export function useCustomerWhatsApp(email?: string | null, known?: string | null) {
+  const q = useQuery({
+    queryKey: ["memory", "lookup", email],
+    queryFn: () => get("/memory/lookup/", { email }),
+    enabled: !!email && known === undefined, retry: false, staleTime: 60_000,
+  });
+  if (known !== undefined) return known || null;
+  const d: any = q.data;
+  return (d?.whatsapp_number ?? d?.profile?.whatsapp_number) || null;
+}
+
+export function CustomerChannels({ email, whatsapp, compact }: { email: string; whatsapp?: string | null; compact?: boolean }) {
+  const wa = useCustomerWhatsApp(email, whatsapp);
+  const recordPhone = useCustomerPhone(wa ? null : email);
+  const phone = wa ?? recordPhone;
   const [res, setRes] = useState<Partial<Record<Channel, Result>>>({});
   const [busy, setBusy] = useState<Channel | null>(null);
 
@@ -55,15 +69,16 @@ export function CustomerChannels({ email, compact }: { email: string; compact?: 
     } finally { setBusy(null); }
   };
 
+  const status = (ch: Channel): Result | undefined => res[ch] ?? (ch === "whatsapp" && wa ? { connected: true } : undefined);
   const digits = phone?.replace(/\D/g, "") ?? "";
   const shareOnWhatsApp = (link: string, ch: Channel) =>
     `https://wa.me/${digits}?text=${encodeURIComponent(`Hi! Tap this link to connect with us on ${LABEL[ch]} so we can send you updates: ${link}`)}`;
 
   return (
     <div className="space-y-2.5">
-      {phone && <p className="flex items-center gap-2 text-sm"><Phone className="size-4 text-muted" /> <span className="font-medium">{phone}</span> <span className="text-xs text-muted">from your records</span></p>}
+      {phone && <p className="flex items-center gap-2 text-sm"><Phone className="size-4 text-muted" /> <span className="font-medium">{phone}</span> <span className="text-xs text-muted">{wa ? "WhatsApp number" : "from your records"}</span></p>}
       {(["whatsapp", "telegram"] as Channel[]).map((ch) => {
-        const r = res[ch];
+        const r = status(ch);
         return (
           <div key={ch} className="rounded-xl border border-border p-3">
             <div className="flex items-center gap-3">

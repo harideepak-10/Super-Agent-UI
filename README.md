@@ -46,7 +46,7 @@ Build for production: `npm run build` → static files in `dist/`. `public/_redi
 | `/costs` · `/audit` · `/compliance` · `/qa` | Governance | `/costs/*`, `/audit/*`, `/compliance/*`, `/qa/*` |
 | `/settings/*` | Profile, connected apps & channels, team (Admin / Manager / Member, manager assignment, activity), notifications | `/profile/*`, `/integrations/*`, `/team/*`, `/notifications/settings/` |
 
-Role-aware UI: the current role comes from `/profile/settings-summary/` (`owner` = Admin). Admin-only actions
+Role-aware UI: the current role comes from the `header` of `/profile/settings/` (`owner` = Admin). Admin-only actions
 (confirm business profile, hire recommended agents, approval policies, role changes) are hidden for others.
 
 Global: `Ctrl/⌘ K` search (`/search/`), notification bell (`/notifications/*` + `ws/notifications/`), light/dark toggle.

@@ -39,15 +39,19 @@ export function ProfileSettings() {
   const setUser = useAuth((s) => s.setUser);
   const q = useQuery({ queryKey: ["profile"], queryFn: () => get("/profile/") });
   const [name, setName] = useState<string | null>(null);
+  const [phone, setPhone] = useState<string | null>(null);
   const [pw, setPw] = useState({ current_password: "", new_password: "" });
   const p = q.data?.user ?? q.data ?? {};
 
   const save = useMutation({
     mutationFn: async (file?: File) => {
       if (file) { const fd = new FormData(); fd.append("avatar", file); if (name) fd.append("name", name); return (await api.patch("/profile/update/", fd)).data; }
-      return patch("/profile/update/", { name });
+      const body: any = {};
+      if (name != null) body.name = name;
+      if (phone != null) body.phone = phone.trim();
+      return patch("/profile/update/", body);
     },
-    onSuccess: (d: any) => { toast.ok("Profile updated"); setName(null); qc.invalidateQueries({ queryKey: ["profile"] }); const u = d?.user ?? d; if (u?.email) setUser(u); },
+    onSuccess: (d: any) => { toast.ok("Profile updated"); setName(null); setPhone(null); qc.invalidateQueries({ queryKey: ["profile"] }); qc.invalidateQueries({ queryKey: ["profile-settings"] }); const u = d?.user ?? d; if (u?.email) setUser(u); },
     onError: (e) => toast.err(errMsg(e)),
   });
   const changePw = useMutation({ mutationFn: () => post("/profile/change-password/", pw), onSuccess: () => { toast.ok("Password changed"); setPw({ current_password: "", new_password: "" }); }, onError: (e) => toast.err(errMsg(e)) });
@@ -66,7 +70,10 @@ export function ProfileSettings() {
         </div>
         <Field label="Name"><Input value={name ?? p.name ?? ""} onChange={(e) => setName(e.target.value)} /></Field>
         <Field label="Email"><Input value={p.email ?? ""} disabled /></Field>
-        <Button variant="primary" disabled={name == null} loading={save.isPending} onClick={() => save.mutate(undefined)}>Save</Button>
+        <Field label="Phone number" hint="Your own number, e.g. +91 98765 43210. A 10-digit number gets your business's country code added.">
+          <Input type="tel" autoComplete="tel" value={phone ?? p.phone ?? ""} onChange={(e) => setPhone(e.target.value)} placeholder="+91 98765 43210" />
+        </Field>
+        <Button variant="primary" disabled={name == null && phone == null} loading={save.isPending} onClick={() => save.mutate(undefined)}>Save</Button>
       </Card>
       <Card className="space-y-4 p-5">
         <p className="text-sm font-medium">Change password</p>

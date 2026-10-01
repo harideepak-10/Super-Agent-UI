@@ -88,7 +88,7 @@ export function CustomerDetail() {
           {c.email && (
             <Card className="p-5">
               <p className="mb-3 text-sm font-medium">Channels</p>
-              <CustomerChannels email={c.email} />
+              <CustomerChannels email={c.email} whatsapp={"whatsapp_number" in c ? c.whatsapp_number : undefined} />
             </Card>
           )}
           {(c.interaction_summary || topics.length > 0) && (

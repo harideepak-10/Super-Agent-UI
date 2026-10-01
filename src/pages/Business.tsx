@@ -477,6 +477,14 @@ function SetupTab({ profile }: { profile: any }) {
     onSuccess: (d: any) => { const n = asList(d?.created).length; toast.ok(n ? `Hired ${n} agent${n === 1 ? "" : "s"}` : "Already hired"); inv(); qc.invalidateQueries({ queryKey: ["agents"] }); },
     onError: (e) => toast.err(errMsg(e)),
   });
+  const [contact, setContact] = useState<{ contact_phone: string; default_country_code: string } | null>(null);
+  const ct = contact ?? { contact_phone: profile.contact_phone ?? "", default_country_code: profile.default_country_code || phoneCc(f.currency) };
+  const saveContact = useMutation({
+    // contact fields don't change the profile status, so they get their own PATCH
+    mutationFn: () => patch("/business/profile/", { contact_phone: ct.contact_phone.trim(), default_country_code: ct.default_country_code.trim() }),
+    onSuccess: () => { toast.ok("Contact details saved"); setContact(null); inv(); },
+    onError: (e) => toast.err(errMsg(e)),
+  });
   const togglePage = (k: string) => setForm({ ...f, pages: f.pages.includes(k) ? f.pages.filter((x: string) => x !== k) : [...f.pages, k] });
   const recs = asList(profile.recommended_agents);
   const pendingRecs = recs.filter((a: any) => !a.active);
@@ -487,7 +495,7 @@ function SetupTab({ profile }: { profile: any }) {
         <div className="flex items-center justify-between"><p className="font-semibold">Business profile</p><span className="text-xs text-muted">Detected by {profile.analysis_method === "ai" ? "AI" : "rules"}</span></div>
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="sm:col-span-2"><Field label="Business type"><Input disabled={!me.canManage} value={f.business_type} onChange={(e) => setForm({ ...f, business_type: e.target.value })} /></Field></div>
-          <Field label="Currency" hint={`Phone numbers in your records use ${phoneCc(f.currency)}`}><Input disabled={!me.canManage} maxLength={3} value={f.currency} onChange={(e) => setForm({ ...f, currency: e.target.value.toUpperCase() })} /></Field>
+          <Field label="Currency" hint={`Phone numbers in your records use ${profile.default_country_code || phoneCc(f.currency)}`}><Input disabled={!me.canManage} maxLength={3} value={f.currency} onChange={(e) => setForm({ ...f, currency: e.target.value.toUpperCase() })} /></Field>
         </div>
         <Field label="Summary"><Textarea disabled={!me.canManage} rows={3} value={f.summary} onChange={(e) => setForm({ ...f, summary: e.target.value })} /></Field>
         <div>
@@ -516,6 +524,14 @@ function SetupTab({ profile }: { profile: any }) {
             ) : <p className="self-center text-xs text-muted">Only the Admin can confirm the profile.</p>}
           </div>
         )}
+        <div className="space-y-3 border-t border-border pt-4">
+          <p className="text-sm font-semibold">Contact</p>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="sm:col-span-2"><Field label="Business contact number" hint="Your business phone, shown to customers"><Input type="tel" disabled={!me.canManage} placeholder="+91 98765 43210" value={ct.contact_phone} onChange={(e) => setContact({ ...ct, contact_phone: e.target.value })} /></Field></div>
+            <Field label="Country code for imports" hint="Added to numbers without one"><Input disabled={!me.canManage} maxLength={5} placeholder="+91" value={ct.default_country_code} onChange={(e) => setContact({ ...ct, default_country_code: e.target.value.replace(/[^\d+]/g, "") })} /></Field>
+          </div>
+          {me.canManage && contact && <Button size="sm" loading={saveContact.isPending} onClick={() => saveContact.mutate()}>Save contact</Button>}
+        </div>
         {profile.confirmed_by_email && <p className="text-xs text-muted">Confirmed by {profile.confirmed_by_email} · {fmtDate(profile.confirmed_at)}</p>}
       </Card>
 

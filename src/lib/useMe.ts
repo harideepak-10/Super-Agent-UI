@@ -5,11 +5,11 @@ export type Role = "owner" | "manager" | "member";
 export const ROLE_LABEL: Record<Role, string> = { owner: "Admin", manager: "Manager", member: "Member" };
 
 /**
- * Current user's workspace role (from /profile/settings-summary/).
+ * Current user's workspace role, name, email and phone (from /profile/settings/ → header).
  * owner = Admin (workspace owner), manager, member.
  */
 export function useMe() {
-  const q = useQuery({ queryKey: ["settings-summary"], queryFn: () => get("/profile/settings-summary/"), staleTime: 60_000 });
+  const q = useQuery({ queryKey: ["profile-settings"], queryFn: () => get("/profile/settings/"), staleTime: 60_000 });
   const header = q.data?.header ?? {};
   // Until the role is known (loading, or the request failed) we don't hide
   // anything — the backend still enforces permissions and returns a clear 403.
