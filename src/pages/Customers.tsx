@@ -7,6 +7,7 @@ import { asList, errMsg, fmtDate, timeAgo } from "@/lib/utils";
 import { Badge, Button, Card, Empty, Field, Input, Loading, Modal, PageHeader, Table, Td, Textarea } from "@/components/ui";
 import { Avatar } from "@/components/Layout";
 import { toast } from "@/components/toast";
+import { CustomerChannels } from "@/components/CustomerChannels";
 
 export function CustomersList() {
   const qc = useQueryClient();
@@ -84,6 +85,12 @@ export function CustomerDetail() {
           <Button variant="primary" disabled={!form} loading={save.isPending} onClick={() => save.mutate()}>Save</Button>
         </Card>
         <div className="space-y-6 lg:col-span-3">
+          {c.email && (
+            <Card className="p-5">
+              <p className="mb-3 text-sm font-medium">Channels</p>
+              <CustomerChannels email={c.email} />
+            </Card>
+          )}
           {(c.interaction_summary || topics.length > 0) && (
             <Card className="p-5">
               <p className="mb-2 text-sm font-medium">What agents know</p>

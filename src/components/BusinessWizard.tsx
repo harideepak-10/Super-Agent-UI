@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, Building2, Check, Coffee, Factory, GraduationCap, HeartPulse, Laptop, ShoppingBag, Sparkles, Store, Wrench } from "lucide-react";
-import { patch } from "@/api/client";
+import { useBusinessFinalize } from "@/lib/businessFlow";
 import { useAuth } from "@/store/auth";
 import { cn } from "@/lib/utils";
 import { Button, Card, Field, Input, Select, Textarea } from "./ui";
 import { RecordTypePicker, RecordUploader } from "./TrackRecords";
-import { toast } from "./toast";
 
 const INDUSTRIES = [
   { key: "retail", label: "Retail shop", icon: Store, types: ["sales", "customers", "products", "inventory"] },
@@ -51,14 +50,13 @@ export function BusinessWizard({ onDone, onSkip, framed }: { onDone: () => void;
   const businessType = [industry && industry.key !== "other" ? industry.label : "", d.name].filter(Boolean).join(" — ") || d.name;
   const summary = [d.about.trim(), d.goals.length ? `Goals: ${d.goals.join(", ")}.` : ""].filter(Boolean).join(" ");
 
-  const afterUpload = async () => {
-    try {
-      const body: any = { currency: d.currency };
-      if (businessType) body.business_type = businessType;
-      if (summary) body.summary = summary;
-      await patch("/business/profile/", body);
-      qc.invalidateQueries({ queryKey: ["business"] });
-    } catch { toast.info("Uploaded — you can edit your business details in Setup & agents."); }
+  const { finalize } = useBusinessFinalize();
+  const afterUpload = async (res: any) => {
+    const body: any = { currency: d.currency };
+    if (businessType) body.business_type = businessType;
+    if (summary) body.summary = summary;
+    await finalize(res, body);
+    qc.invalidateQueries({ queryKey: ["business"] });
     try { localStorage.removeItem(draftKey(user?.id)); } catch { /* ignore */ }
     onDone();
   };

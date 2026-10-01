@@ -8,6 +8,7 @@ import { Badge, Button, Card, Empty, ErrorBox, Field, Input, Loading, Modal, Pag
 import { Drawer } from "@/components/Drawer";
 import { Avatar } from "@/components/Layout";
 import { toast } from "@/components/toast";
+import { CustomerChannels } from "@/components/CustomerChannels";
 
 const STAGES = [
   { v: "new", l: "New", c: "bg-slate-400" },
@@ -345,6 +346,7 @@ function CustomerOverview({ email, onClose }: { email: string | null; onClose: (
             {ls && L && <div className="text-center"><p className="text-2xl font-bold">{ls.score}</p><Badge tone={L.tone as any}><L.icon className="size-3" />{L.l}</Badge></div>}
           </div>
           {c.interaction_summary && <Card className="p-4 text-sm text-muted">{c.interaction_summary}</Card>}
+          {c.email && <Section title="Channels"><CustomerChannels email={c.email} compact /></Section>}
           <Section title="Deals">
             {!asList(d.deals).length && <p className="text-sm text-muted">No deals yet.</p>}
             {asList(d.deals).map((x: any) => (

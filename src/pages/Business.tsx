@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -14,6 +14,7 @@ import { AgentIcon } from "@/components/AgentIcon";
 import { toast } from "@/components/toast";
 import { ENTITY_ICON, RecordTypePicker, RecordUploader } from "@/components/TrackRecords";
 import { BusinessWizard } from "@/components/BusinessWizard";
+import { PHONE_CC_KEY, phoneCc, useBusinessFinalize } from "@/lib/businessFlow";
 
 const PERIODS = [
   ["all", "All time"], ["today", "Today"], ["this_week", "This week"], ["30d", "Last 30 days"], ["this_month", "This month"],
@@ -58,22 +59,45 @@ export default function BusinessHub() {
   );
 }
 
-/** Onboarding progress: upload → review → confirm → import → dashboards */
+/** Onboarding progress with a one-click action for the step you're on. */
 function Stepper({ p, onGo }: { p: any; onGo: (t: string) => void }) {
+  const me = useMe();
+  const flow = useBusinessFinalize();
+  const [busy, setBusy] = useState(false);
   const summary = useQuery({ queryKey: ["business", "summary"], queryFn: () => get("/business/records/summary/") });
   const imported = (summary.data?.total_records ?? 0) > 0;
+  const confirmed = p.status === "confirmed";
+  const allHired = asList(p.recommended_agents).length > 0 && asList(p.recommended_agents).every((a: any) => a.active);
   const steps = [
     { l: "Upload data", done: true, tab: "data" },
     { l: "Review sheets", done: asList(p.entities).length > 0, tab: "data" },
-    { l: "Confirm profile", done: p.status === "confirmed", tab: "setup" },
-    { l: "Import records", done: imported, tab: "data" },
-    { l: "Hire agents", done: asList(p.recommended_agents).length > 0 && asList(p.recommended_agents).every((a: any) => a.active), tab: "setup" },
+    { l: "Confirm profile", done: confirmed, tab: "setup" },
+    { l: "Records live", done: confirmed && imported, tab: "dashboard" },
+    { l: "Hire agents", done: allHired || asList(p.recommended_agents).length === 0, tab: "setup" },
   ];
   if (steps.every((s) => s.done)) return null;
   const current = steps.findIndex((s) => !s.done);
+  const run = async (fn: () => Promise<void>) => { setBusy(true); try { await fn(); } finally { setBusy(false); } };
+
+  let action: React.ReactNode = null;
+  if (current === 2) action = me.isAdmin ? (
+    <><p className="text-sm text-muted">Your business profile is a draft. Confirm it to put your records live on the dashboards.</p>
+      <Button variant="ghost" onClick={() => onGo("setup")}>Review details</Button>
+      <Button variant="primary" loading={busy} onClick={() => run(() => flow.confirmAndImport())}><CircleCheck className="size-4" /> Confirm & import</Button></>
+  ) : <p className="text-sm text-muted">Waiting for the Admin to confirm the business profile — then your records go live.</p>;
+  else if (current === 3) action = me.canManage ? (
+    <><p className="text-sm text-muted">Your profile is confirmed — bring your uploaded sheets onto the dashboards.</p>
+      <Button variant="primary" loading={busy} onClick={() => run(() => flow.importSheets())}><Database className="size-4" /> Import records</Button></>
+  ) : null;
+  else if (current === 4) action = (
+    <><p className="text-sm text-muted">Agents that fit your data are ready to hire.</p>
+      <Button variant="primary" onClick={() => onGo("setup")}><Rocket className="size-4" /> See recommended agents</Button></>
+  );
+  else if (current === 1) action = <><p className="text-sm text-muted">Tell us what each sheet contains so we can build your dashboards.</p><Button variant="primary" onClick={() => onGo("data")}>Review sheets</Button></>;
+
   return (
-    <Card className="mb-6 p-4">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-3">
+    <Card className="mb-6 overflow-hidden">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-3 p-4">
         {steps.map((s, i) => (
           <button key={s.l} onClick={() => onGo(s.tab)} className="flex items-center gap-2 cursor-pointer">
             <span className={cn("grid size-7 place-items-center rounded-full text-xs font-bold", s.done ? "bg-ok text-white" : i === current ? "bg-brand text-white" : "bg-surface-2 text-muted")}>
@@ -84,6 +108,7 @@ function Stepper({ p, onGo }: { p: any; onGo: (t: string) => void }) {
           </button>
         ))}
       </div>
+      {action && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border bg-accent/5 px-4 py-3 [&>p]:mr-auto">{action}</div>}
     </Card>
   );
 }
@@ -106,7 +131,7 @@ function Welcome() {
         </div>
       </div>
       {me.isLoading ? <Loading /> : !me.isMember
-        ? <BusinessWizard framed onDone={() => setParams({ tab: "data" })} />
+        ? <BusinessWizard framed onDone={() => setParams({})} />
         : (
           <Card className="p-6 sm:p-8">
             <div className="flex flex-col items-center gap-3 text-center">
@@ -227,7 +252,6 @@ function DataTab({ profile }: { profile: any }) {
             );
           })}
         </div>
-        <ImportPanel profile={profile} canManage={me.canManage} />
       </section>
 
       {entity && <RecordsBrowser entity={entity} onClose={() => setEntity("")} currency={profile.currency} />}
@@ -244,6 +268,7 @@ function DataTab({ profile }: { profile: any }) {
 }
 
 function AddRecords() {
+  const addFlow = useBusinessFinalize();
   const [open, setOpen] = useState(false);
   const [types, setTypes] = useState<string[]>([]);
   if (!open) return (
@@ -257,7 +282,7 @@ function AddRecords() {
     <Card className="mb-4 space-y-4 p-5">
       <div className="flex items-center justify-between"><p className="font-semibold">Which records do you want to add?</p><Button size="sm" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button></div>
       <RecordTypePicker value={types} onChange={setTypes} dense />
-      <RecordUploader selected={types} compact onUploaded={() => setOpen(false)} />
+      <RecordUploader selected={types} compact onUploaded={async (res) => { await addFlow.finalize(res); setOpen(false); }} />
     </Card>
   );
 }
@@ -265,43 +290,6 @@ function AddRecords() {
 const SectionTitle = ({ title, sub }: { title: string; sub?: string }) => (
   <div className="mb-3"><p className="font-semibold">{title}</p>{sub && <p className="text-sm text-muted">{sub}</p>}</div>
 );
-
-function ImportPanel({ profile, canManage }: { profile: any; canManage: boolean }) {
-  const qc = useQueryClient();
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [cc, setCc] = useState("+91");
-  const confirmed = profile.status === "confirmed";
-  const job = useQuery({ queryKey: ["business", "job", jobId], queryFn: () => get(`/business/import/jobs/${jobId}/`), enabled: !!jobId, refetchInterval: (q) => (["done", "failed"].includes(q.state.data?.status) ? false : 2000) });
-  useEffect(() => {
-    const s = job.data?.status;
-    if (s === "done") { toast.ok(`Imported ${job.data?.result?.totals?.records ?? ""} records`); qc.invalidateQueries({ queryKey: ["business"] }); setJobId(null); }
-    if (s === "failed") { toast.err(job.data?.error || "Import failed"); setJobId(null); }
-  }, [job.data?.status]); // eslint-disable-line react-hooks/exhaustive-deps
-  const run = useMutation({
-    mutationFn: () => post("/business/import/", { default_country_code: cc }),
-    onSuccess: (d: any) => {
-      if (d?.job) { setJobId(d.job.id); toast.info("Import started in the background"); return; }
-      toast.ok(`Imported ${d?.totals?.records ?? 0} records`);
-      asList(d?.skipped).forEach((s: any) => toast.info(`Skipped ${s.name}: ${s.reason}`));
-      qc.invalidateQueries({ queryKey: ["business"] }); qc.invalidateQueries({ queryKey: ["customers"] });
-    },
-    onError: (e) => toast.err(errMsg(e)),
-  });
-  if (!canManage) return null;
-  const busy = run.isPending || !!jobId;
-  return (
-    <Card className="mt-4 flex flex-wrap items-center gap-4 p-4">
-      <div className="grid size-10 place-items-center rounded-xl bg-accent/10 text-accent"><Database className="size-5" /></div>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold">{confirmed ? "Import your sheets" : "Confirm your profile to import"}</p>
-        <p className="text-xs text-muted">{confirmed ? "Every sheet with a detected type is imported. Re-importing a sheet replaces its earlier records. Customers are linked to customer memory." : "The Admin must confirm the business profile in Setup & agents before data can be imported."}</p>
-        {jobId && <p className="mt-1 text-xs text-info">Background import: {job.data?.status ?? "queued"}…</p>}
-      </div>
-      <Field label="Default phone code"><Input value={cc} onChange={(e) => setCc(e.target.value)} className="h-9 w-24" /></Field>
-      <Button variant="primary" disabled={!confirmed} loading={busy} onClick={() => run.mutate()}><Download className="size-4 rotate-180" /> Import all</Button>
-    </Card>
-  );
-}
 
 function UploadRow({ u, canManage }: { u: any; canManage: boolean }) {
   const qc = useQueryClient();
@@ -331,6 +319,7 @@ function UploadRow({ u, canManage }: { u: any; canManage: boolean }) {
 
 function SheetEditor({ sheet, canManage }: { sheet: any; canManage: boolean }) {
   const qc = useQueryClient();
+  const flow = useBusinessFinalize();
   const catalog = useQuery({ queryKey: ["business", "catalog"], queryFn: () => get("/business/catalog/") });
   const entities = asList(catalog.data?.entities);
   const [entity, setEntity] = useState<string>(sheet.entity ?? "");
@@ -339,7 +328,12 @@ function SheetEditor({ sheet, canManage }: { sheet: any; canManage: boolean }) {
   const dirty = entity !== (sheet.entity ?? "") || JSON.stringify(mapping) !== JSON.stringify(sheet.column_mapping ?? {});
   const save = useMutation({
     mutationFn: () => patch(`/business/sheets/${sheet.id}/`, entity !== (sheet.entity ?? "") && JSON.stringify(mapping) === JSON.stringify(sheet.column_mapping ?? {}) ? { entity } : { entity, column_mapping: Object.fromEntries(Object.entries(mapping).filter(([, v]) => v)) }),
-    onSuccess: (d: any) => { toast.ok("Sheet updated"); if (d?.sheet) { setEntity(d.sheet.entity ?? ""); setMapping(d.sheet.column_mapping ?? {}); } qc.invalidateQueries({ queryKey: ["business"] }); },
+    onSuccess: async (d: any) => {
+      toast.ok("Sheet updated");
+      if (d?.sheet) { setEntity(d.sheet.entity ?? ""); setMapping(d.sheet.column_mapping ?? {}); }
+      if (d?.profile?.status === "confirmed" && d?.sheet?.entity) await flow.importSheets([sheet.id]);
+      qc.invalidateQueries({ queryKey: ["business"] });
+    },
     onError: (e) => toast.err(errMsg(e)),
   });
   const conf = Math.round((sheet.confidence ?? 0) * (sheet.confidence <= 1 ? 100 : 1));
@@ -469,7 +463,16 @@ function SetupTab({ profile }: { profile: any }) {
   const [form, setForm] = useState<any>(null);
   const f = form ?? { business_type: profile.business_type ?? "", summary: profile.summary ?? "", currency: profile.currency ?? "INR", pages: profile.pages ?? [] };
   const inv = () => { qc.invalidateQueries({ queryKey: ["business"] }); };
-  const save = useMutation({ mutationFn: (confirm: boolean) => patch("/business/profile/", { ...(form ?? {}), ...(confirm ? { confirm: true } : {}) }), onSuccess: (_d, c) => { toast.ok(c ? "Profile confirmed — you can import now" : "Saved (needs confirming again)"); setForm(null); inv(); }, onError: (e) => toast.err(errMsg(e)) });
+  const flow = useBusinessFinalize();
+  const [cc, setCc] = useState(phoneCc());
+  const save = useMutation({
+    mutationFn: async (confirm: boolean) => {
+      if (confirm) return flow.confirmAndImport(form ?? {});
+      return patch("/business/profile/", form ?? {});
+    },
+    onSuccess: (_d, c) => { if (!c) toast.ok(me.isAdmin ? "Saved — confirm to put it live" : "Saved — the Admin needs to confirm it"); setForm(null); inv(); },
+    onError: (e) => toast.err(errMsg(e)),
+  });
   const hire = useMutation({
     mutationFn: (types?: string[]) => post("/business/profile/activate-agents/", types ? { agent_types: types } : {}),
     onSuccess: (d: any) => { const n = asList(d?.created).length; toast.ok(n ? `Hired ${n} agent${n === 1 ? "" : "s"}` : "Already hired"); inv(); qc.invalidateQueries({ queryKey: ["agents"] }); },
@@ -488,6 +491,9 @@ function SetupTab({ profile }: { profile: any }) {
           <Field label="Currency"><Input disabled={!me.canManage} maxLength={3} value={f.currency} onChange={(e) => setForm({ ...f, currency: e.target.value.toUpperCase() })} /></Field>
         </div>
         <Field label="Summary"><Textarea disabled={!me.canManage} rows={3} value={f.summary} onChange={(e) => setForm({ ...f, summary: e.target.value })} /></Field>
+        <Field label="Country code for phone numbers in your records" hint="Used to turn 10-digit numbers into WhatsApp numbers (e.g. 98765 43210 → +91 98765 43210).">
+          <Input className="w-32" value={cc} onChange={(e) => { setCc(e.target.value); try { localStorage.setItem(PHONE_CC_KEY, e.target.value.trim() || "+91"); } catch { /* ignore */ } }} />
+        </Field>
         <div>
           <p className="mb-2 text-xs font-medium text-muted">Dashboard pages</p>
           <div className="grid gap-2 sm:grid-cols-2">
@@ -510,7 +516,7 @@ function SetupTab({ profile }: { profile: any }) {
           <div className="flex flex-wrap gap-2 border-t border-border pt-4">
             {form && <Button loading={save.isPending && !save.variables} onClick={() => save.mutate(false)}>Save draft</Button>}
             {me.isAdmin ? (
-              <Button variant="primary" loading={save.isPending && !!save.variables} disabled={profile.status === "confirmed" && !form} onClick={() => save.mutate(true)}><CircleCheck className="size-4" /> {profile.status === "confirmed" && !form ? "Confirmed" : "Confirm profile"}</Button>
+              <Button variant="primary" loading={save.isPending && !!save.variables} disabled={profile.status === "confirmed" && !form} onClick={() => save.mutate(true)}><CircleCheck className="size-4" /> {profile.status === "confirmed" && !form ? "Confirmed" : "Confirm & import"}</Button>
             ) : <p className="self-center text-xs text-muted">Only the Admin can confirm the profile.</p>}
           </div>
         )}

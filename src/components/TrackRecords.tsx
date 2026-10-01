@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, BarChart3, Boxes, Briefcase, Check, Database, Download, FileSpreadsheet, FolderKanban, Package, Receipt, RefreshCw, ShoppingCart, UploadCloud, Users, Wallet, X } from "lucide-react";
 import { ACCEPT, FORMATS_LABEL, prepareFile, toWorkbook, type Prepared } from "@/lib/fileToTables";
+import { useBusinessFinalize } from "@/lib/businessFlow";
 import { api, get } from "@/api/client";
 import { asList, cn, errMsg } from "@/lib/utils";
 import { Button, Card, Toggle } from "./ui";
@@ -76,7 +77,7 @@ export function RecordTypePicker({ value, onChange, dense }: { value: string[]; 
 }
 
 /** Drag-and-drop upload of ANY business file (Excel, CSV, PDF, Word, JSON…) → preview → /business/uploads/. */
-export function RecordUploader({ selected = [], compact, onUploaded, workbookName }: { selected?: string[]; compact?: boolean; onUploaded?: (res: any) => void; workbookName?: string }) {
+export function RecordUploader({ selected = [], compact, onUploaded, workbookName }: { selected?: string[]; compact?: boolean; onUploaded?: (res: any) => void | Promise<void>; workbookName?: string }) {
   const qc = useQueryClient();
   const nav = useNavigate();
   const { types, limits } = useRecordTypes();
@@ -85,6 +86,8 @@ export function RecordUploader({ selected = [], compact, onUploaded, workbookNam
   const [useAi, setUseAi] = useState(true);
   const [reading, setReading] = useState(false);
   const [prepared, setPrepared] = useState<Prepared[]>([]);
+  const [finishing, setFinishing] = useState(false);
+  const { finalize } = useBusinessFinalize();
   const picked = types.filter((t) => selected.includes(t.key));
   const tables = prepared.flatMap((p) => p.tables);
 
@@ -107,12 +110,13 @@ export function RecordUploader({ selected = [], compact, onUploaded, workbookNam
       const fd = new FormData(); fd.append("file", file); fd.append("use_ai", String(useAi));
       return (await api.post("/business/uploads/", fd)).data;
     },
-    onSuccess: (d: any) => {
-      const n = asList(d?.upload?.sheets).length;
-      toast.ok(`Analyzed ${n} sheet${n === 1 ? "" : "s"} — review what we found`);
+    onSuccess: async (d: any) => {
       setPrepared([]);
-      qc.invalidateQueries({ queryKey: ["business"] });
-      if (onUploaded) onUploaded(d); else nav("/business?tab=data");
+      setFinishing(true);
+      try {
+        if (onUploaded) await onUploaded(d);
+        else { await finalize(d); nav("/business"); }
+      } finally { setFinishing(false); qc.invalidateQueries({ queryKey: ["business"] }); }
     },
     onError: (e) => toast.err(errMsg(e)),
   });
@@ -125,8 +129,8 @@ export function RecordUploader({ selected = [], compact, onUploaded, workbookNam
         className={cn("border-2 border-dashed text-center transition-colors", compact ? "p-6" : "p-8 sm:p-10", drag ? "border-accent bg-accent/5" : "border-border")}
       >
         <input ref={input} type="file" multiple accept={ACCEPT} className="hidden" onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
-        <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-accent/10 text-accent">{reading ? <RefreshCw className="size-6 animate-spin" /> : <UploadCloud className="size-6" />}</div>
-        <p className="mt-4 font-semibold">{reading ? "Reading your files…" : "Drop your records here — any format"}</p>
+        <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-accent/10 text-accent">{reading || finishing ? <RefreshCw className="size-6 animate-spin" /> : <UploadCloud className="size-6" />}</div>
+        <p className="mt-4 font-semibold">{finishing ? "Importing your records…" : reading ? "Reading your files…" : "Drop your records here — any format"}</p>
         <p className="mt-1 text-sm text-muted">{FORMATS_LABEL} · several files at once is fine{limits?.max_file_mb ? ` · up to ${limits.max_file_mb} MB` : ""}</p>
         <div className="mt-3 flex flex-wrap justify-center gap-1.5">
           {[["XLSX", "text-emerald-600 bg-emerald-500/10"], ["CSV", "text-emerald-600 bg-emerald-500/10"], ["PDF", "text-rose-600 bg-rose-500/10"], ["DOCX", "text-sky-600 bg-sky-500/10"], ["XLS / ODS", "text-emerald-600 bg-emerald-500/10"], ["JSON", "text-amber-600 bg-amber-500/10"]].map(([l, c]) => (
@@ -179,7 +183,7 @@ export function RecordUploader({ selected = [], compact, onUploaded, workbookNam
           <div className="flex flex-wrap items-center gap-3 px-4 py-3">
             <label className="flex items-center gap-2 text-xs text-muted"><Toggle checked={useAi} onChange={setUseAi} /> Use AI to detect record types <span className="hidden sm:inline">· only column names, types and 3 masked sample rows are sent</span></label>
             <Button variant="primary" className="ml-auto" disabled={!tables.length} loading={upload.isPending} onClick={() => upload.mutate()}>
-              <UploadCloud className="size-4" /> Upload {tables.length} table{tables.length === 1 ? "" : "s"}
+              <UploadCloud className="size-4" /> Upload & import {tables.length} table{tables.length === 1 ? "" : "s"}
             </Button>
           </div>
         </Card>

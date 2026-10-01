@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, ExternalLink, Mail, HardDrive, Calendar, Slack, Send, MessageCircle, Github, NotebookPen, Plug, UserPlus, Trash2 } from "lucide-react";
+import { Mail, HardDrive, Calendar, Slack, Send, MessageCircle, Github, NotebookPen, Plug, UserPlus, Trash2 } from "lucide-react";
 import { api, del, get, patch, post } from "@/api/client";
 import { asList, cn, errMsg, timeAgo } from "@/lib/utils";
 import { useAuth } from "@/store/auth";
 import { useMe } from "@/lib/useMe";
 import { Badge, Button, Card, Field, Input, Loading, PasswordInput, Modal, PageHeader, Select, StatusBadge, Table, Td, Toggle } from "@/components/ui";
 import { Avatar } from "@/components/Layout";
+import { CustomerChannels } from "@/components/CustomerChannels";
 import { toast } from "@/components/toast";
 
 export function SettingsLayout() {
@@ -90,8 +91,8 @@ const PROVIDERS: Record<string, { icon: any; desc: string; auth?: string; color:
   slack: { icon: Slack, desc: "Post updates to channels", color: "text-fuchsia-400 bg-fuchsia-400/10" },
   notion: { icon: NotebookPen, desc: "Read and write Notion pages", color: "text-zinc-300 bg-zinc-400/10" },
   github: { icon: Github, desc: "Issues and pull requests", color: "text-zinc-300 bg-zinc-400/10" },
-  telegram: { icon: Send, desc: "Message customers on Telegram", color: "text-sky-400 bg-sky-400/10" },
-  whatsapp: { icon: MessageCircle, desc: "Message customers on WhatsApp", color: "text-green-400 bg-green-400/10" },
+  telegram: { icon: Send, desc: "Agents message customers on Telegram. Each customer connects once with an invite link.", color: "text-sky-400 bg-sky-400/10" },
+  whatsapp: { icon: MessageCircle, desc: "Agents message customers on WhatsApp. Customers imported with a phone number are linked automatically; others connect with an invite link.", color: "text-green-400 bg-green-400/10" },
 };
 
 export function IntegrationSettings() {
@@ -131,14 +132,14 @@ export function IntegrationSettings() {
           const isChannel = p.provider === "telegram" || p.provider === "whatsapp";
           return (
             <Card key={p.provider} className="flex items-start gap-4 p-5">
-              {LOGOS[p.provider] ? <div className="grid size-11 shrink-0 place-items-center rounded-xl border border-border bg-white p-2"><img src={LOGOS[p.provider]} alt="" className="max-h-full max-w-full object-contain" /></div> : <div className={cn("grid size-11 shrink-0 place-items-center rounded-xl", meta.color)}><meta.icon className="size-5" /></div>}
+              {LOGOS[p.provider] ? <div className={cn("grid size-11 shrink-0 place-items-center rounded-xl border border-border p-2", p.provider === "whatsapp" ? "bg-[#25D366]" : p.provider === "telegram" ? "bg-[#229ED9]" : "bg-white")}><img src={LOGOS[p.provider]} alt="" className="max-h-full max-w-full object-contain" /></div> : <div className={cn("grid size-11 shrink-0 place-items-center rounded-xl", meta.color)}><meta.icon className="size-5" /></div>}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2"><p className="font-medium">{p.label}</p>{conn && <StatusBadge status={conn.status} />}</div>
                 <p className="mt-0.5 text-sm text-muted">{meta.desc}</p>
                 {conn?.metadata?.email && <p className="mt-1 text-xs text-muted">{conn.metadata.email}</p>}
                 {conn && <p className="mt-1 text-[11px] text-muted">Connected {timeAgo(conn.created_at)}</p>}
                 <div className="mt-3">
-                  {isChannel ? <Button size="sm" onClick={() => setChannel(p.provider)}>Invite a customer</Button>
+                  {isChannel ? <Button size="sm" onClick={() => setChannel(p.provider)}>Connect a customer</Button>
                     : conn ? <Button size="sm" variant="danger" loading={disconnect.isPending && disconnect.variables === conn.id} onClick={() => disconnect.mutate(conn.id)}>Disconnect</Button>
                     : <Button size="sm" variant="primary" disabled={!meta.auth} loading={connect.isPending && connect.variables === p.provider} onClick={() => connect.mutate(p.provider)}>{meta.auth ? "Connect" : "Coming soon"}</Button>}
                 </div>
@@ -154,23 +155,21 @@ export function IntegrationSettings() {
 
 function ChannelConnect({ channel, onClose }: { channel: "telegram" | "whatsapp" | null; onClose: () => void }) {
   const [email, setEmail] = useState("");
-  const [link, setLink] = useState<string | null>(null);
-  const gen = useMutation({ mutationFn: () => post("/integrations/channels/connect/", { email, channel }), onSuccess: (d: any) => setLink(d.connect_link ?? d.link ?? d.url), onError: (e) => toast.err(errMsg(e)) });
-  useEffect(() => { if (!channel) { setEmail(""); setLink(null); } }, [channel]);
+  const [go, setGo] = useState<string | null>(null);
+  const customers = useQuery({ queryKey: ["customers"], queryFn: () => get("/memory/"), enabled: !!channel });
+  useEffect(() => { if (!channel) { setEmail(""); setGo(null); } }, [channel]);
   return (
-    <Modal open={!!channel} onClose={onClose} title={`Connect a customer on ${channel === "whatsapp" ? "WhatsApp" : "Telegram"}`}>
+    <Modal open={!!channel} onClose={onClose} title={`Connect a customer on ${channel === "whatsapp" ? "WhatsApp" : "Telegram"}`} wide>
       <div className="space-y-4">
-        <p className="text-sm text-muted">Generate a one-time link. When the customer opens it, their {channel} chat is linked to their profile so agents can message them.</p>
-        <Field label="Customer email"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
-        {link ? (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 rounded-lg border border-border bg-surface-2 p-2.5"><span className="flex-1 truncate font-mono text-xs">{link}</span>
-              <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(link); toast.ok("Copied"); }}><Copy className="size-3.5" /></Button>
-              <a href={link} target="_blank" rel="noreferrer"><Button size="sm" variant="ghost"><ExternalLink className="size-3.5" /></Button></a>
-            </div>
-            <p className="text-xs text-muted">Send this link to the customer.</p>
+        <p className="text-sm text-muted">Each customer connects once. Customers you imported with a phone number are linked to WhatsApp automatically. For anyone else, generate an invite link and send it to them.</p>
+        <Field label="Customer email">
+          <div className="flex gap-2">
+            <Input type="email" list="cc-customers" value={email} onChange={(e) => { setEmail(e.target.value); setGo(null); }} placeholder="customer@email.com" />
+            <datalist id="cc-customers">{asList(customers.data).map((c: any) => <option key={c.id} value={c.email}>{c.name}</option>)}</datalist>
+            <Button variant="primary" disabled={!email.includes("@")} onClick={() => setGo(email.trim().toLowerCase())}>Check</Button>
           </div>
-        ) : <Button variant="primary" className="w-full" disabled={!email} loading={gen.isPending} onClick={() => gen.mutate()}>Generate link</Button>}
+        </Field>
+        {go && <CustomerChannels key={go} email={go} />}
       </div>
     </Modal>
   );

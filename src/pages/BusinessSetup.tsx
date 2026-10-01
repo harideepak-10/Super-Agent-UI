@@ -16,7 +16,7 @@ export default function BusinessSetup() {
   const user = useAuth((s) => s.user);
   const [step, setStep] = useState<0 | 1>(0);
   const skip = () => { bizPrompt.set(user?.id, "skipped"); nav("/", { replace: true }); };
-  const done = () => { bizPrompt.set(user?.id, "done"); nav("/business?tab=data", { replace: true }); };
+  const done = () => { bizPrompt.set(user?.id, "done"); nav("/business", { replace: true }); };
 
   return (
     <div className="relative min-h-full overflow-hidden bg-bg">
