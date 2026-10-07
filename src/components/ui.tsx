@@ -106,6 +106,7 @@ const STATUS: Record<string, { tone: any; label: string; pulse?: boolean }> = {
   queued: { tone: "neutral", label: "Queued" },
   running: { tone: "info", label: "Running", pulse: true },
   waiting_approval: { tone: "warn", label: "Needs approval" },
+  needs_input: { tone: "warn", label: "Needs your answer" },
   pending: { tone: "warn", label: "Pending" },
   completed: { tone: "ok", label: "Completed" },
   approved: { tone: "ok", label: "Approved" },

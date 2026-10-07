@@ -7,10 +7,11 @@ import type { Task } from "@/api/types";
 import { asList, cn, errMsg, eur, timeAgo, uuid } from "@/lib/utils";
 import { Button, Card, Empty, ErrorBox, Loading, PageHeader, StatusBadge } from "@/components/ui";
 import { AgentIcon } from "@/components/AgentIcon";
+import { AttachButtons, AttachmentChips, DropZone, Uploading, taskBody, useAttachments } from "@/components/TaskFiles";
 import { toast } from "@/components/toast";
 
 const FILTERS = [
-  { v: "", l: "All" }, { v: "running", l: "Running" }, { v: "queued", l: "Queued" }, { v: "waiting_approval", l: "Needs approval" },
+  { v: "", l: "All" }, { v: "running", l: "Running" }, { v: "queued", l: "Queued" }, { v: "waiting_approval", l: "Needs approval" }, { v: "needs_input", l: "Needs answer" },
   { v: "completed", l: "Completed" }, { v: "failed", l: "Failed" }, { v: "cancelled", l: "Cancelled" },
 ];
 
@@ -74,7 +75,7 @@ function TaskRow({ t }: { t: Task }) {
   const pct = Math.round(t.progress_percent ?? (t.total_steps_estimate ? ((t.steps_taken ?? 0) / t.total_steps_estimate) * 100 : 0));
   return (
     <Link to={`/chat?task=${t.id}`} className="block">
-      <Card className={cn("p-4 transition hover:-translate-y-px hover:border-accent/30", t.status === "waiting_approval" && "border-warn/40")}>
+      <Card className={cn("p-4 transition hover:-translate-y-px hover:border-accent/30", (t.status === "waiting_approval" || t.status === "needs_input") && "border-warn/40")}>
         <div className="flex items-start gap-3">
           <AgentIcon type={guessType(t.agent_name)} />
           <div className="min-w-0 flex-1">
@@ -111,14 +112,15 @@ export function NewTask() {
   const [agent, setAgent] = useState("auto");
   const [priority, setPriority] = useState<"routine" | "urgent">("routine");
   const [notice, setNotice] = useState<string | null>(null);
+  const attach = useAttachments();
   const f = form.data ?? {};
   const meta = f.form_meta ?? {};
   const agents = asList(f.agents);
   const max = meta.prompt_max_length ?? 500;
 
   const run = useMutation({
-    mutationFn: () => post<Task>("/tasks/create/", { prompt: prompt.trim(), priority, conversation_id: uuid(), ...(agent !== "auto" ? { agent_id: agent } : {}) }),
-    onSuccess: (t) => { toast.ok("Task started"); nav(`/chat?task=${t.id}`); },
+    mutationFn: () => post<Task>("/tasks/create/", taskBody({ prompt: prompt.trim(), priority, conversation_id: uuid(), ...(agent !== "auto" ? { agent_id: agent } : {}) }, attach.items)),
+    onSuccess: (t) => { toast.ok(t.status === "needs_input" ? "Your agent has a question" : "Task started"); nav(t.conversation_id ? `/chat?c=${t.conversation_id}` : `/chat?task=${t.id}`); },
     onError: (e: any) => {
       const d = e?.response?.data;
       if (d?.detail === "needs_clarification" || d?.detail === "needs_file_selection") setNotice(d.message);
@@ -137,16 +139,24 @@ export function NewTask() {
       <div className="space-y-7">
         <section>
           <Label>{meta.prompt_label ?? "WHAT SHOULD THE AI DO?"}</Label>
+          <DropZone onFiles={attach.add}>
           <Card className="p-1 focus-within:border-accent focus-within:ring-4 focus-within:ring-accent/10">
             <textarea
               autoFocus rows={5} maxLength={max} value={prompt}
               onChange={(e) => { setPrompt(e.target.value); setNotice(null); }}
-              onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && prompt.trim()) run.mutate(); }}
+              onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && (prompt.trim() || attach.items.length)) run.mutate(); }}
+              onPaste={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); attach.add(e.clipboardData.files); } }}
               placeholder={meta.prompt_placeholder ?? "e.g. Send a follow-up email to all leads who haven't replied in 3 days..."}
               className="block w-full resize-none rounded-xl bg-transparent px-4 py-3 text-[15px] outline-none placeholder:text-muted"
             />
-            <div className="flex justify-between px-4 pb-2 text-[11px] text-muted"><span>Ctrl + Enter to run</span><span>{prompt.length}/{max}</span></div>
+            {attach.items.length > 0 && <div className="px-3 pb-2"><AttachmentChips items={attach.items} onRemove={attach.remove} /></div>}
+            <div className="flex flex-wrap items-center gap-2 px-3 pb-2 text-[11px] text-muted">
+              <AttachButtons onAdd={attach.add} />
+              <span className="hidden sm:inline">PDF, Word, Excel, PPT, images, folders or zips · drop files here</span>
+              <span className="ml-auto">{run.isPending && attach.items.length ? <Uploading /> : <>Ctrl + Enter to run · {prompt.length}/{max}</>}</span>
+            </div>
           </Card>
+          </DropZone>
           {notice && <div className="mt-3 flex gap-2 rounded-xl border border-info/30 bg-info/8 px-4 py-3 text-sm"><Sparkles className="mt-0.5 size-4 shrink-0 text-info" />{notice}</div>}
         </section>
 
@@ -212,7 +222,7 @@ export function NewTask() {
           {priority === "urgent" && <p className="mt-2 text-xs text-muted">Urgent tasks bypass the queue for immediate execution.</p>}
         </section>
 
-        <Button variant="primary" className="h-12 w-full text-base" disabled={!prompt.trim()} loading={run.isPending} onClick={() => run.mutate()}>
+        <Button variant="primary" className="h-12 w-full text-base" disabled={!prompt.trim() && !attach.items.length} loading={run.isPending} onClick={() => run.mutate()}>
           <Send className="size-4" /> {meta.submit_label ?? "Run Task"}
         </Button>
       </div>

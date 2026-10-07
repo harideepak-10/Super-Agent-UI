@@ -35,8 +35,8 @@ Build for production: `npm run build` → static files in `dist/`. `public/_redi
 | `/login`, `/register`, `/forgot-password`, `/reset-password` | Auth | `/auth/*` |
 | `/welcome` | Onboarding slides (first visit) | — |
 | `/` | Home dashboard + business pulse + follow-ups | `/dashboard/`, `/quick-tasks/`, `/business/dashboard/`, `/crm/follow-ups/` |
-| `/tasks`, `/tasks/new` | Task list with filters/search, New Task form | `/tasks/`, `/search/tasks/`, `/tasks/new-task-form/`, `/tasks/create/` |
-| `/chat` | Conversations + live execution trace + inline approvals | `/tasks/*`, `ws/tasks/<id>/` |
+| `/tasks`, `/tasks/new` | Task list with filters/search, New Task form (attach files / folders) | `/tasks/`, `/search/tasks/`, `/tasks/new-task-form/`, `/tasks/create/` |
+| `/chat` | Conversations + live trace + inline approvals, file attachments, agent questions (`needs_input`) and document View / Download | `/tasks/*`, `/tasks/documents/<id>/view|download/`, `ws/tasks/<id>/` |
 | `/inbox`, `/inbox/:id` | Approvals: awaiting, history, tool rules, who approves (per-agent policy) | `/approvals/*`, `/approvals/policies/` |
 | `/crm` | Deals pipeline (drag & drop), follow-ups, lead scores, inactive contacts, customer overview | `/crm/*` |
 | `/business`, `/business/:page` | Business onboarding (upload → review → confirm → import → hire agents), records browser + CSV export, dynamic dashboards | `/business/*` |
@@ -65,6 +65,9 @@ src/
 
 - **Chat threading:** the client generates a `conversation_id` (UUID) for each new chat and sends it with every follow-up; the sidebar groups `/tasks/` by it.
 - **Live trace:** while a task is queued/running/waiting, the turn opens `ws/tasks/<id>/`, appends `step_update` events, and refetches on `status_changed`. It also polls every 5s as a fallback, so it still works if Redis/Channels is down.
+- **Files:** attach files, a folder or a zip (drag & drop or paste works too). With files the message goes as multipart (`files` repeated, `paths` for folders); the prompt can be empty for a summary. Limits match the backend: 25 MB a file, 100 MB in total.
+- **Agent questions:** a task with status `needs_input` shows its question (`result`) with `input_options` as chips; picking sends `selected_options` in the same conversation (typing an answer works too).
+- **Documents:** `task.documents` render with View (PDF / image / text in a viewer, Word / PPT / Excel as preview text) and Download. Files are fetched through the API client because Django sends `X-Frame-Options: DENY`. Google Drive links show only when the user asked for Drive.
 - **Clarifications:** `/tasks/create/` 400s with `needs_clarification` / `needs_file_selection` are shown as agent messages (Drive files become clickable chips).
 
 ## Known backend gaps

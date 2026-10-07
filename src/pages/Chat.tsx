@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Send, RotateCcw, Square, Download, Zap, MessageSquare, AlertTriangle, FileText, PanelLeft } from "lucide-react";
+import { Plus, Send, RotateCcw, Square, Download, Zap, MessageSquare, AlertTriangle, FileText, PanelLeft, HelpCircle } from "lucide-react";
 import { api, get, post } from "@/api/client";
 import type { Agent, Task, TaskStep } from "@/api/types";
 import { asList, cn, errMsg, eur, timeAgo, uuid } from "@/lib/utils";
@@ -13,6 +13,7 @@ import { ApprovalCard } from "@/components/ApprovalCard";
 import { Markdown } from "@/components/Markdown";
 import { toast } from "@/components/toast";
 import { useAuth } from "@/store/auth";
+import { AttachButtons, AttachmentChips, DropZone, InputOptions, SentFiles, TaskDocuments, Uploading, taskBody, useAttachments } from "@/components/TaskFiles";
 import { Avatar } from "@/components/Layout";
 
 const ACTIVE = ["queued", "running", "waiting_approval"];
@@ -34,7 +35,7 @@ function groupConversations(tasks: Task[]): Convo[] {
 }
 
 /* ─────────────── one task = user prompt + agent turn ─────────────── */
-function TaskTurn({ taskId, initial }: { taskId: string; initial: Task }) {
+function TaskTurn({ taskId, initial, isLast, onAnswer, answering }: { taskId: string; initial: Task; isLast: boolean; onAnswer: (keys: string[]) => void; answering: boolean }) {
   const qc = useQueryClient();
   const user = useAuth((s) => s.user);
   const [liveSteps, setLiveSteps] = useState<TaskStep[]>([]);
@@ -76,7 +77,13 @@ function TaskTurn({ taskId, initial }: { taskId: string; initial: Task }) {
       URL.revokeObjectURL(url);
     } catch (e) { toast.err(errMsg(e)); }
   };
-  const deliverables = Array.isArray(task.deliverables) ? task.deliverables.filter((d: any) => d && (typeof d === "string" || d.filename || d.name)) : [];
+  const documents = task.documents ?? [];
+  const docIds = new Set(documents.map((d) => d.id));
+  // older tasks: plain deliverables (no stored document) still download the old way
+  const deliverables = Array.isArray(task.deliverables)
+    ? task.deliverables.filter((d: any) => d && (typeof d === "string" || ((d.filename || d.name) && !(d.id && docIds.has(d.id)) && !d.view_url)))
+    : [];
+  const asking = task.status === "needs_input";
 
   return (
     <div className="space-y-4">
@@ -87,13 +94,14 @@ function TaskTurn({ taskId, initial }: { taskId: string; initial: Task }) {
         </div>
         <Avatar name={user?.name || user?.email} src={user?.avatar_url} className="hidden sm:grid" />
       </div>
+      {task.files && task.files.length > 0 && <div className="-mt-2 sm:pr-12"><SentFiles files={task.files} /></div>}
 
       <div className="flex gap-3">
         <AgentIcon type={guessType(task.agent_name)} className="mt-0.5" />
         <div className="min-w-0 flex-1 space-y-3">
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="font-medium text-fg">{task.agent_name || "Orchestrator"}</span>
-            <StatusBadge status={task.status} />
+            <StatusBadge status={asking && !isLast ? "answered" : task.status} />
             {task.status === "running" && task.progress_percent != null && <span className="text-muted">{Math.round(task.progress_percent)}%</span>}
             <span className="text-muted">{timeAgo(task.created_at)}</span>
           </div>
@@ -102,7 +110,15 @@ function TaskTurn({ taskId, initial }: { taskId: string; initial: Task }) {
 
           {task.status === "waiting_approval" && task.approval_id && <ApprovalCard approvalId={task.approval_id} compact />}
 
-          {task.result && task.status !== "failed" && <div className="rounded-2xl rounded-tl-sm border border-border bg-surface px-4 py-3"><Markdown text={task.result} /></div>}
+          {task.result && task.status !== "failed" && (
+            <div className={cn("space-y-3 rounded-2xl rounded-tl-sm border bg-surface px-4 py-3", asking ? "border-warn/40" : "border-border")}>
+              {asking && <p className="flex items-center gap-1.5 text-xs font-semibold text-warn"><HelpCircle className="size-3.5" /> {isLast ? "Your agent needs an answer to continue" : "Answered below"}</p>}
+              <Markdown text={task.result} />
+              {asking && <InputOptions task={task} enabled={isLast} busy={answering} onAnswer={onAnswer} />}
+            </div>
+          )}
+
+          <TaskDocuments docs={documents} />
 
           {task.status === "failed" && (
             <div className="flex items-start gap-2 rounded-xl border border-err/30 bg-err/5 px-4 py-3 text-sm text-err">
@@ -148,6 +164,7 @@ export default function Chat() {
   const [urgent, setUrgent] = useState(false);
   const [notice, setNotice] = useState<{ message: string; files?: any[] } | null>(null);
   const [showList, setShowList] = useState(false);
+  const attach = useAttachments();
 
   const tasksQ = useQuery<Task[]>({ queryKey: ["tasks"], queryFn: async () => asList(await get("/tasks/")), refetchInterval: 15000 });
   const agentsQ = useQuery<Agent[]>({ queryKey: ["agents"], queryFn: async () => asList(await get("/agents/")) });
@@ -187,9 +204,14 @@ export default function Chat() {
   useEffect(() => { setNotice(null); }, [current?.key]);
 
   const send = useMutation({
-    mutationFn: (prompt: string) => post<Task>("/tasks/create/", { prompt, priority: urgent ? "urgent" : "routine", conversation_id: conversationId, ...(agentId ? { agent_id: agentId } : {}) }),
-    onSuccess: (t) => {
-      setDraft(""); setNotice(null);
+    mutationFn: ({ prompt, selected }: { prompt?: string; selected?: string[] }) => {
+      const files = selected ? [] : attach.items;
+      const body = taskBody({ prompt: prompt ?? "", priority: urgent ? "urgent" : "routine", conversation_id: conversationId, ...(agentId ? { agent_id: agentId } : {}), ...(selected?.length ? { selected_options: selected } : {}) }, files);
+      return post<Task>("/tasks/create/", body);
+    },
+    onSuccess: (t, v) => {
+      if (!v.selected) { setDraft(""); attach.clear(); }
+      setNotice(null);
       qc.setQueryData<Task[]>(["tasks"], (old) => [t, ...(old ?? [])]);
       qc.invalidateQueries({ queryKey: ["tasks"] });
       if (!cParam) setParams({ c: t.conversation_id ?? conversationId });
@@ -201,7 +223,8 @@ export default function Chat() {
     },
   });
 
-  const submit = () => { const p = draft.trim(); if (p && !send.isPending) send.mutate(p); };
+  const submit = () => { const p = draft.trim(); if ((p || attach.items.length) && !send.isPending) send.mutate({ prompt: p }); };
+  const lastId = turns[turns.length - 1]?.id;
   const newChat = () => { setNewConvoId(uuid()); setParams({}); setShowList(false); };
 
   const suggestions = ["Summarize my latest 5 unread emails", "What meetings do I have tomorrow?", "Find the latest invoice in my Drive and summarize it", "Draft a follow-up email to my last client"];
@@ -221,7 +244,7 @@ export default function Chat() {
             >
               <p className="truncate text-sm">{c.title}</p>
               <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted">
-                {ACTIVE.includes(c.status) && <span className={cn("size-1.5 rounded-full", c.status === "waiting_approval" ? "bg-warn" : "bg-info pulse-dot")} />}
+                {(ACTIVE.includes(c.status) || c.status === "needs_input") && <span className={cn("size-1.5 rounded-full", c.status === "waiting_approval" || c.status === "needs_input" ? "bg-warn" : "bg-info pulse-dot")} />}
                 {c.status === "failed" && <span className="size-1.5 rounded-full bg-err" />}
                 <span className="truncate">{c.agentName || "Orchestrator"}</span>
                 <span>·</span>
@@ -243,7 +266,7 @@ export default function Chat() {
           <div ref={content} className="mx-auto max-w-3xl space-y-8 px-4 py-6">
             {turns.length === 0 && !orphan.isLoading && (
               <div className="pt-[8vh]">
-                <Empty icon={<MessageSquare className="size-8" />} title="What should your agents do?" text="Describe a task. Pick an agent, or leave it on Auto and the orchestrator will route it." />
+                <Empty icon={<MessageSquare className="size-8" />} title="What should your agents do?" text="Describe a task or attach files (PDF, Word, Excel, PPT, images, a folder or a zip). Pick an agent, or leave it on Auto." />
                 <div className="mx-auto grid max-w-xl gap-2 sm:grid-cols-2">
                   {suggestions.map((s) => (
                     <button key={s} onClick={() => setDraft(s)} className="rounded-xl border border-border bg-surface px-3.5 py-3 text-left text-sm text-muted hover:border-accent/50 hover:text-fg cursor-pointer">{s}</button>
@@ -251,7 +274,7 @@ export default function Chat() {
                 </div>
               </div>
             )}
-            {turns.map((t) => <TaskTurn key={t.id} taskId={t.id} initial={t} />)}
+            {turns.map((t) => <TaskTurn key={t.id} taskId={t.id} initial={t} isLast={t.id === lastId && !send.isPending} answering={send.isPending && !!send.variables?.selected} onAnswer={(keys) => send.mutate({ selected: keys })} />)}
             {notice && (
               <div className="flex gap-3">
                 <AgentIcon type="orchestrator" />
@@ -277,17 +300,20 @@ export default function Chat() {
 
         {/* composer */}
         <div className="border-t border-border bg-surface/60 px-4 py-3">
-          <div className="mx-auto max-w-3xl rounded-2xl border border-border bg-surface focus-within:border-accent">
+          <DropZone onFiles={attach.add} className="mx-auto max-w-3xl rounded-2xl border border-border bg-surface focus-within:border-accent">
+            {attach.items.length > 0 && <div className="px-3 pt-3"><AttachmentChips items={attach.items} onRemove={attach.remove} /></div>}
             <textarea
               rows={2}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } }}
-              placeholder="Ask an agent to do something…  (Enter to send, Shift+Enter for new line)"
+              onPaste={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); attach.add(e.clipboardData.files); } }}
+              placeholder={attach.items.length ? "What should I do with these files? (leave empty for a summary)" : "Ask an agent to do something, or attach files…  (Enter to send)"}
               className="block w-full resize-none bg-transparent px-4 pt-3 text-sm outline-none placeholder:text-muted"
               maxLength={500}
             />
             <div className="flex flex-wrap items-center gap-2 px-3 pb-2.5">
+              <AttachButtons onAdd={attach.add} compact />
               <Select value={agentId} onChange={(e) => setAgentId(e.target.value)} className="h-8 max-w-[200px] text-xs">
                 <option value="">Auto (orchestrator)</option>
                 {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -298,12 +324,12 @@ export default function Chat() {
               >
                 <Zap className="size-3.5" /> {urgent ? "Urgent" : "Routine"}
               </button>
-              <span className="ml-auto text-[11px] text-muted">{draft.length}/500</span>
-              <Button variant="primary" size="sm" onClick={submit} loading={send.isPending} disabled={!draft.trim()}>
+              <span className="ml-auto text-[11px] text-muted">{send.isPending && attach.items.length > 0 && !send.variables?.selected ? <Uploading /> : `${draft.length}/500`}</span>
+              <Button variant="primary" size="sm" onClick={submit} loading={send.isPending && !send.variables?.selected} disabled={!draft.trim() && !attach.items.length}>
                 <Send className="size-3.5" /> Send
               </Button>
             </div>
-          </div>
+          </DropZone>
         </div>
       </section>
     </div>
