@@ -88,6 +88,7 @@ export function AgentLibrary() {
 export function AgentsList() {
   const q = useQuery<Agent[]>({ queryKey: ["agents"], queryFn: async () => asList(await get("/agents/")) });
   const [creating, setCreating] = useState(false);
+  const def = useQuery({ queryKey: ["agents", "default"], queryFn: () => get("/agents/default/"), retry: false, staleTime: 300_000 });
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
       <PageHeader title="Agents" subtitle="Your AI workforce. Hire more from the marketplace or build your own."
@@ -95,6 +96,21 @@ export function AgentsList() {
           <Link to="/agents/library"><Button>Marketplace</Button></Link>
           <Button variant="primary" onClick={() => setCreating(true)}><Plus className="size-4" /> Build your own</Button>
         </>} />
+      {def.data && (
+        <Card className="mb-4 flex flex-wrap items-start gap-4 p-5">
+          <AgentIcon type="default" size="lg" />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2"><p className="font-semibold">{def.data.name}</p><Badge tone="info">Built in</Badge></div>
+            <p className="mt-0.5 text-sm text-muted">{def.data.description}</p>
+            {asList(def.data.capabilities).length > 0 && (
+              <ul className="mt-2 grid gap-x-6 gap-y-1 text-xs text-muted sm:grid-cols-2">
+                {asList(def.data.capabilities).map((c: string) => <li key={c} className="flex gap-1.5"><span className="text-accent">•</span>{c}</li>)}
+              </ul>
+            )}
+          </div>
+          <Link to="/chat"><Button variant="primary" size="sm">Chat now</Button></Link>
+        </Card>
+      )}
       {q.isLoading ? <Loading /> : q.error ? <ErrorBox error={q.error} /> : !q.data?.length ? (
         <Card><Empty icon={<Bot className="size-8" />} title="No agents yet" text="Hire one from the marketplace to get started, or build your own." action={<Link to="/agents/library"><Button variant="primary">Hire an agent</Button></Link>} /></Card>
       ) : (

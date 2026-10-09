@@ -100,7 +100,7 @@ function TaskTurn({ taskId, initial, isLast, onAnswer, answering }: { taskId: st
         <AgentIcon type={guessType(task.agent_name)} className="mt-0.5" />
         <div className="min-w-0 flex-1 space-y-3">
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="font-medium text-fg">{task.agent_name || "Orchestrator"}</span>
+            <span className="font-medium text-fg">{task.agent_name || "Default Assistant"}</span>
             <StatusBadge status={asking && !isLast ? "answered" : task.status} />
             {task.status === "running" && task.progress_percent != null && <span className="text-muted">{Math.round(task.progress_percent)}%</span>}
             <span className="text-muted">{timeAgo(task.created_at)}</span>
@@ -150,8 +150,9 @@ function TaskTurn({ taskId, initial, isLast, onAnswer, answering }: { taskId: st
 
 function guessType(name?: string | null) {
   const n = (name ?? "").toLowerCase();
+  if (!n || n === "default assistant") return "default";
   for (const t of ["email", "calendar", "document", "finance", "compliance", "qa", "research", "workflow", "communication"]) if (n.includes(t)) return t;
-  return n ? "custom" : "orchestrator";
+  return "custom";
 }
 
 /* ─────────────── page ─────────────── */
@@ -209,7 +210,12 @@ export default function Chat() {
       const body = taskBody({ prompt: prompt ?? "", priority: urgent ? "urgent" : "routine", conversation_id: conversationId, ...(agentId ? { agent_id: agentId } : {}), ...(selected?.length ? { selected_options: selected } : {}) }, files);
       return post<Task>("/tasks/create/", body);
     },
-    onSuccess: (t, v) => {
+    onSuccess: (t: any, v) => {
+      if (t?.hired_agent) {
+        toast.ok(`Hired ${t.hired_agent.name} — it's selected for your next message`);
+        qc.invalidateQueries({ queryKey: ["agents"] });
+        setAgentId(t.hired_agent.id);
+      }
       if (!v.selected) { setDraft(""); attach.clear(); }
       setNotice(null);
       qc.setQueryData<Task[]>(["tasks"], (old) => [t, ...(old ?? [])]);
@@ -227,7 +233,11 @@ export default function Chat() {
   const lastId = turns[turns.length - 1]?.id;
   const newChat = () => { setNewConvoId(uuid()); setParams({}); setShowList(false); };
 
-  const suggestions = ["Summarize my latest 5 unread emails", "What meetings do I have tomorrow?", "Find the latest invoice in my Drive and summarize it", "Draft a follow-up email to my last client"];
+  // Quick Tasks: the user's most-used prompts, topped up with defaults the workspace can actually run
+  const quick = useQuery({ queryKey: ["quick-tasks"], queryFn: () => get("/quick-tasks/"), retry: false, staleTime: 60_000 });
+  const suggestions: { title: string; prompt: string }[] = asList(quick.data).length
+    ? asList(quick.data).slice(0, 4).map((q: any) => ({ title: q.title || q.prompt, prompt: q.prompt }))
+    : ["Summarize my latest 5 unread emails", "What meetings do I have tomorrow?", "What can you help me with?", "Which agent should I use to send invoices?"].map((p) => ({ title: p, prompt: p }));
 
   return (
     <div className="flex h-full">
@@ -246,7 +256,7 @@ export default function Chat() {
               <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted">
                 {(ACTIVE.includes(c.status) || c.status === "needs_input") && <span className={cn("size-1.5 rounded-full", c.status === "waiting_approval" || c.status === "needs_input" ? "bg-warn" : "bg-info pulse-dot")} />}
                 {c.status === "failed" && <span className="size-1.5 rounded-full bg-err" />}
-                <span className="truncate">{c.agentName || "Orchestrator"}</span>
+                <span className="truncate">{c.agentName || "Default Assistant"}</span>
                 <span>·</span>
                 <span className="shrink-0">{timeAgo(c.last)}</span>
                 {c.tasks.length > 1 && <span className="ml-auto shrink-0">{c.tasks.length}</span>}
@@ -266,10 +276,10 @@ export default function Chat() {
           <div ref={content} className="mx-auto max-w-3xl space-y-8 px-4 py-6">
             {turns.length === 0 && !orphan.isLoading && (
               <div className="pt-[8vh]">
-                <Empty icon={<MessageSquare className="size-8" />} title="What should your agents do?" text="Describe a task or attach files (PDF, Word, Excel, PPT, images, a folder or a zip). Pick an agent, or leave it on Auto." />
+                <Empty icon={<MessageSquare className="size-8" />} title="What should your agents do?" text="Chat with the Default Assistant — it answers questions, suggests the right agent and can hire one for you. Or pick an agent, and attach files (PDF, Word, Excel, PPT, images, a folder or a zip)." />
                 <div className="mx-auto grid max-w-xl gap-2 sm:grid-cols-2">
                   {suggestions.map((s) => (
-                    <button key={s} onClick={() => setDraft(s)} className="rounded-xl border border-border bg-surface px-3.5 py-3 text-left text-sm text-muted hover:border-accent/50 hover:text-fg cursor-pointer">{s}</button>
+                    <button key={s.prompt} title={s.prompt} onClick={() => setDraft(s.prompt.slice(0, 500))} className="rounded-xl border border-border bg-surface px-3.5 py-3 text-left text-sm text-muted hover:border-accent/50 hover:text-fg cursor-pointer">{s.title}</button>
                   ))}
                 </div>
               </div>
@@ -277,7 +287,7 @@ export default function Chat() {
             {turns.map((t) => <TaskTurn key={t.id} taskId={t.id} initial={t} isLast={t.id === lastId && !send.isPending} answering={send.isPending && !!send.variables?.selected} onAnswer={(keys) => send.mutate({ selected: keys })} />)}
             {notice && (
               <div className="flex gap-3">
-                <AgentIcon type="orchestrator" />
+                <AgentIcon type="default" />
                 <div className="flex-1 space-y-2 rounded-2xl rounded-tl-sm border border-border bg-surface px-4 py-3">
                   <Markdown text={notice.message} />
                   {notice.files && notice.files.length > 0 && (
@@ -315,7 +325,7 @@ export default function Chat() {
             <div className="flex flex-wrap items-center gap-2 px-3 pb-2.5">
               <AttachButtons onAdd={attach.add} compact />
               <Select value={agentId} onChange={(e) => setAgentId(e.target.value)} className="h-8 max-w-[200px] text-xs">
-                <option value="">Auto (orchestrator)</option>
+                <option value="">Default Assistant</option>
                 {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
               </Select>
               <button

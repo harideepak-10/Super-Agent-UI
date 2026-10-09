@@ -17,8 +17,10 @@ const FILTERS = [
 
 export function guessType(name?: string | null) {
   const n = (name ?? "").toLowerCase();
+  if (!n || n === "default assistant") return "default";
+  if (n.includes("orchestrator")) return "orchestrator";
   for (const t of ["email", "calendar", "document", "finance", "compliance", "qa", "research", "workflow", "communication", "crm", "reporting"]) if (n.includes(t)) return t;
-  return n ? "custom" : "orchestrator";
+  return "custom";
 }
 
 /* ─────────────── Tasks list (Flutter TasksScreen) ─────────────── */
@@ -80,7 +82,7 @@ function TaskRow({ t }: { t: Task }) {
           <AgentIcon type={guessType(t.agent_name)} />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-xs font-semibold text-muted">{t.agent_name || "Orchestrator"}</p>
+              <p className="text-xs font-semibold text-muted">{t.agent_name || "Default Assistant"}</p>
               {t.priority === "urgent" && <span className="rounded-md bg-err/10 px-1.5 text-[10px] font-bold text-err uppercase">Urgent</span>}
             </div>
             <p className="mt-0.5 line-clamp-2 text-sm font-medium">{t.prompt}</p>
@@ -109,7 +111,8 @@ export function NewTask() {
   const nav = useNavigate();
   const form = useQuery({ queryKey: ["new-task-form"], queryFn: () => get("/tasks/new-task-form/") });
   const [prompt, setPrompt] = useState("");
-  const [agent, setAgent] = useState("auto");
+  const [picked, setPicked] = useState<string | null>(null);
+  const setAgent = setPicked;
   const [priority, setPriority] = useState<"routine" | "urgent">("routine");
   const [notice, setNotice] = useState<string | null>(null);
   const attach = useAttachments();
@@ -117,9 +120,11 @@ export function NewTask() {
   const meta = f.form_meta ?? {};
   const agents = asList(f.agents);
   const max = meta.prompt_max_length ?? 500;
+  // the form lists the Default Assistant first (is_default, value "default"); no agent_id = Default Assistant
+  const agent = picked ?? agents.find((a: any) => a.is_default)?.value ?? "default";
 
   const run = useMutation({
-    mutationFn: () => post<Task>("/tasks/create/", taskBody({ prompt: prompt.trim(), priority, conversation_id: uuid(), ...(agent !== "auto" ? { agent_id: agent } : {}) }, attach.items)),
+    mutationFn: () => post<Task>("/tasks/create/", taskBody({ prompt: prompt.trim(), priority, conversation_id: uuid(), ...(!isDefault(agent) ? { agent_id: agent } : {}) }, attach.items)),
     onSuccess: (t) => { toast.ok(t.status === "needs_input" ? "Your agent has a question" : "Task started"); nav(t.conversation_id ? `/chat?c=${t.conversation_id}` : `/chat?task=${t.id}`); },
     onError: (e: any) => {
       const d = e?.response?.data;
@@ -129,7 +134,7 @@ export function NewTask() {
   });
 
   if (form.isLoading) return <Loading />;
-  const onlyAuto = agents.length <= 1;
+  const onlyAuto = agents.filter((a: any) => !isDefault(a.value)).length === 0;
 
   return (
     <div className="mx-auto max-w-3xl p-4 sm:p-6 lg:p-8">
@@ -185,7 +190,7 @@ export function NewTask() {
               return (
                 <button key={a.value} onClick={() => setAgent(a.value)}
                   className={cn("flex items-start gap-3 rounded-2xl border bg-surface p-3.5 text-left shadow-card transition cursor-pointer", sel ? "border-accent ring-4 ring-accent/10" : "border-border hover:border-accent/40")}>
-                  <AgentIcon type={a.value === "auto" ? "orchestrator" : a.agent_type} />
+                  <AgentIcon type={isDefault(a.value) ? "default" : a.agent_type} />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold">{a.label}</p>
                     {a.description && <p className="line-clamp-2 text-xs text-muted">{a.description}</p>}
@@ -198,7 +203,7 @@ export function NewTask() {
           {onlyAuto && (
             <Card className="mt-3 flex flex-wrap items-center gap-3 p-4">
               <Rocket className="size-5 text-accent" />
-              <div className="flex-1"><p className="text-sm font-semibold">No agents hired yet</p><p className="text-xs text-muted">Hire an agent from the marketplace to assign and run this task.</p></div>
+              <div className="flex-1"><p className="text-sm font-semibold">No agents hired yet</p><p className="text-xs text-muted">The Default Assistant can answer this and help you pick one — or hire an agent from the marketplace.</p></div>
               <Link to="/agents/library"><Button size="sm">Hire an Agent</Button></Link>
             </Card>
           )}
@@ -229,5 +234,7 @@ export function NewTask() {
     </div>
   );
 }
+
+const isDefault = (v?: string | null) => !v || ["default", "auto"].includes(String(v).toLowerCase());
 
 const Label = ({ children }: { children: React.ReactNode }) => <p className="mb-2.5 text-[11px] font-semibold tracking-[0.18em] text-muted">{children}</p>;

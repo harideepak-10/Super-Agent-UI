@@ -1,10 +1,11 @@
-import { Handshake, Bot, Mail, Calendar, FileText, GitBranch, Search, Wallet, ShieldCheck, ListChecks, Workflow, MessageSquare, BarChart3 } from "lucide-react";
+import { Handshake, Bot, Sparkles, Mail, Calendar, FileText, GitBranch, Search, Wallet, ShieldCheck, ListChecks, Workflow, MessageSquare, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const MAP: Record<string, [any, string]> = {
   email: [Mail, "text-sky-400 bg-sky-400/10"],
   calendar: [Calendar, "text-amber-400 bg-amber-400/10"],
   document: [FileText, "text-emerald-400 bg-emerald-400/10"],
+  default: [Sparkles, "text-white bg-brand"],
   orchestrator: [GitBranch, "text-[#1a6fff] bg-[#1a6fff]/10"],
   research: [Search, "text-cyan-400 bg-cyan-400/10"],
   finance: [Wallet, "text-lime-400 bg-lime-400/10"],

@@ -157,6 +157,19 @@ export function InputOptions({ task, enabled, onAnswer, busy }: { task: Task; en
   const [sel, setSel] = useState<string[]>([]);
   if (!opts.length) return null;
   const group = opts[0]?.group ?? "topics";
+  if (group === "hire") {
+    // Default Assistant: "Shall I hire the X agent?" — one tap answers
+    return enabled ? (
+      <div className="flex flex-wrap gap-2">
+        {opts.map((o) => (
+          <Button key={o.key} size="sm" variant={o.key === "hire_yes" ? "primary" : "ghost"} loading={busy && sel[0] === o.key} disabled={busy}
+            onClick={() => { setSel([o.key]); onAnswer([o.key]); }}>
+            {o.key === "hire_yes" && <Check className="size-3.5" />} {o.label}
+          </Button>
+        ))}
+      </div>
+    ) : null;
+  }
   const toggle = (k: string) => {
     if (!enabled) return;
     if (k === "everything") return setSel((s) => (s.includes(k) ? [] : [k]));

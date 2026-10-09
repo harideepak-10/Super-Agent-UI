@@ -133,13 +133,15 @@ export function Splash({ onDone }: { onDone: () => void }) {
           <span className="intro-wave absolute size-24 rounded-full border-2 border-[#7aaaff]" />
           <span className="intro-wave absolute size-24 rounded-full border border-[#4ecdc4]" style={{ animationDelay: "1.05s" }} />
           {/* orbiting agents */}
-          <div className="intro-orbit absolute size-0">
+          <div className="intro-orbit absolute top-1/2 left-1/2 size-0">
             {AGENTS.map((a, i) => {
               const deg = (360 / AGENTS.length) * i - 90;
               return (
-                <div key={a.label} className="absolute" style={{ transform: `rotate(${deg}deg) translate(var(--r)) rotate(${-deg}deg)` }}>
-                  <div className="intro-counter">
-                    <div className="intro-chip flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1.5 text-[11px] font-medium whitespace-nowrap backdrop-blur-md sm:text-xs" style={{ animationDelay: `${1.35 + i * 0.09}s` }}>
+                // every wrapper is 0×0 so all rotations pivot on the orbit point itself;
+                // the chip is then centred on that point with translate(-50%,-50%)
+                <div key={a.label} className="absolute top-0 left-0 size-0" style={{ transform: `rotate(${deg}deg) translate(var(--r)) rotate(${-deg}deg)` }}>
+                  <div className="intro-counter absolute top-0 left-0 size-0">
+                    <div className="intro-chip absolute top-0 left-0 flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1.5 text-[11px] font-medium whitespace-nowrap backdrop-blur-md sm:text-xs" style={{ animationDelay: `${1.35 + i * 0.09}s` }}>
                       <a.icon className="size-3.5 text-[#7aaaff]" /> {a.label}
                     </div>
                   </div>

@@ -68,6 +68,8 @@ src/
 - **Files:** attach files, a folder or a zip (drag & drop or paste works too). With files the message goes as multipart (`files` repeated, `paths` for folders); the prompt can be empty for a summary. Limits match the backend: 25 MB a file, 100 MB in total.
 - **Agent questions:** a task with status `needs_input` shows its question (`result`) with `input_options` as chips; picking sends `selected_options` in the same conversation (typing an answer works too).
 - **Documents:** `task.documents` render with View (PDF / image / text in a viewer, Word / PPT / Excel as preview text) and Download. Files are fetched through the API client because Django sends `X-Frame-Options: DENY`. Google Drive links show only when the user asked for Drive.
+- **Default Assistant:** with no agent picked (no `agent_id`), the backend's built-in Default Assistant answers. Pickers show it first; its "hire this agent?" question (`input_options` group `hire`) is a Yes / Not now tap, and a `hired_agent` in the response selects that agent for the next message. Chat suggestions come from `/quick-tasks/`.
+- **Connections:** Settings → Connected apps shows `/integrations/status/` (what agents can use, what's missing).
 - **Clarifications:** `/tasks/create/` 400s with `needs_clarification` / `needs_file_selection` are shown as agent messages (Drive files become clickable chips).
 
 ## Known backend gaps

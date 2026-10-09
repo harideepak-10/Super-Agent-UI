@@ -106,11 +106,13 @@ export function IntegrationSettings() {
   const qc = useQueryClient();
   const mine = useQuery({ queryKey: ["integrations"], queryFn: () => get("/integrations/") });
   const avail = useQuery({ queryKey: ["integrations", "available"], queryFn: () => get("/integrations/available/") });
+  // one answer for every app / channel — the same one agents get from check_connections
+  const status = useQuery({ queryKey: ["integrations", "status"], queryFn: () => get("/integrations/status/"), retry: false });
   const [channel, setChannel] = useState<"telegram" | "whatsapp" | null>(null);
 
   // after the OAuth popup closes the user returns to this tab → refresh
   useEffect(() => {
-    const h = () => qc.invalidateQueries({ queryKey: ["integrations"] });
+    const h = () => qc.invalidateQueries({ queryKey: ["integrations"] }); // also refreshes ["integrations","status"]
     window.addEventListener("focus", h);
     return () => window.removeEventListener("focus", h);
   }, [qc]);
@@ -132,6 +134,7 @@ export function IntegrationSettings() {
 
   return (
     <div className="space-y-4">
+      <ConnectionStatus data={status.data} loading={status.isLoading} />
       <div className="grid gap-4 sm:grid-cols-2">
         {providers.map((p: any) => {
           const meta = PROVIDERS[p.provider] ?? { icon: Plug, desc: "", color: "text-accent bg-accent/10" };
@@ -157,6 +160,32 @@ export function IntegrationSettings() {
       </div>
       <ChannelConnect channel={channel} onClose={() => setChannel(null)} />
     </div>
+  );
+}
+
+/** Summary from GET /integrations/status/: what agents can use right now, and what's missing. */
+function ConnectionStatus({ data, loading }: { data: any; loading: boolean }) {
+  const apps = asList(data?.apps);
+  if (loading || !apps.length) return null;
+  const tone = (a: any) => (a.connected ? "ok" : a.status === "no_customers" ? "warn" : "neutral");
+  const label = (a: any) => (a.connected ? "Connected" : a.status === "no_customers" ? "No customers yet" : a.status === "not_configured" ? "Not set up on server" : a.status === "revoked" ? "Revoked" : a.status === "error" ? "Error" : "Not connected");
+  const hint = (a: any) => a.note || (a.connected ? (a.account || (a.customers_connected ? `${a.customers_connected} customer${a.customers_connected === 1 ? "" : "s"} connected` : "")) :
+    a.app === "slack" ? "Ask the admin to set SLACK_BOT_TOKEN on the server." : ["telegram", "whatsapp"].includes(a.app) ? "Send a customer the connect link below." : "Connect it below.");
+  return (
+    <Card className="p-5">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div><p className="font-semibold">What your agents can use</p><p className="text-xs text-muted">{asList(data.connected).length} of {apps.length} connected</p></div>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {apps.map((a: any) => (
+          <div key={a.app} className="rounded-xl border border-border p-3" title={a.used_for}>
+            <div className="flex items-center justify-between gap-2"><p className="text-sm font-medium">{a.label}</p><Badge tone={tone(a)}>{label(a)}</Badge></div>
+            <p className="mt-1 line-clamp-2 text-xs text-muted">{hint(a)}</p>
+            {asList(a.agents).length > 0 && <p className="mt-1.5 truncate text-[11px] text-muted capitalize">Used by: {asList(a.agents).join(", ")}</p>}
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }
 
