@@ -152,24 +152,57 @@ export function SentFiles({ files }: { files?: TaskFile[] }) {
 }
 
 /* ─────────────── needs_input: the agent's question + choices ─────────────── */
-export function InputOptions({ task, enabled, onAnswer, busy }: { task: Task; enabled: boolean; onAnswer: (keys: string[]) => void; busy?: boolean }) {
+/** Questions answered with one tap (as opposed to the file flows' multi-select topics / format). */
+const SINGLE_GROUPS = new Set(["hire", "handoff", "crm_customer_exists", "recipient"]);
+const PRIMARY_KEYS = new Set(["hire_yes", "handoff_yes", "crm_send_message"]);
+const EMAIL_RE = /^[^@\s<>,;]+@[^@\s<>,;]+\.[A-Za-z]{2,}$/;
+
+export type Answer = { keys?: string[]; text?: string };
+
+export function InputOptions({ task, enabled, onAnswer, busy }: { task: Task; enabled: boolean; onAnswer: (a: Answer) => void; busy?: boolean }) {
   const opts: TaskOption[] = Array.isArray(task.input_options) ? task.input_options : [];
   const [sel, setSel] = useState<string[]>([]);
+  const [email, setEmail] = useState("");
+  const [typing, setTyping] = useState(false);
   if (!opts.length) return null;
   const group = opts[0]?.group ?? "topics";
-  if (group === "hire") {
-    // Default Assistant: "Shall I hire the X agent?" — one tap answers
-    return enabled ? (
-      <div className="flex flex-wrap gap-2">
-        {opts.map((o) => (
-          <Button key={o.key} size="sm" variant={o.key === "hire_yes" ? "primary" : "ghost"} loading={busy && sel[0] === o.key} disabled={busy}
-            onClick={() => { setSel([o.key]); onAnswer([o.key]); }}>
-            {o.key === "hire_yes" && <Check className="size-3.5" />} {o.label}
-          </Button>
+
+  if (SINGLE_GROUPS.has(group)) {
+    if (!enabled) return null;
+    const pick = (k: string) => { setSel([k]); onAnswer({ keys: [k] }); };
+    const input = opts.find((o) => o.input === "email");
+    const choices = opts.filter((o) => o !== input);
+    const validEmail = EMAIL_RE.test(email.trim());
+    return (
+      <div className="space-y-2.5">
+        {group === "recipient" && choices.length > 0 && <p className="text-[11px] font-semibold tracking-wider text-muted">SEND IT TO</p>}
+        <div className={cn("gap-2", group === "recipient" ? "grid sm:grid-cols-2" : "flex flex-wrap")}>
+          {choices.map((o) => group === "recipient" ? (
+            <button key={o.key} type="button" disabled={busy} onClick={() => pick(o.key)}
+              className="flex items-center gap-2.5 rounded-xl border border-border bg-surface px-3 py-2.5 text-left text-sm transition hover:border-accent/50 cursor-pointer disabled:opacity-60">
+              {busy && sel[0] === o.key ? <Loader2 className="size-4 shrink-0 animate-spin text-accent" /> : <span className="grid size-7 shrink-0 place-items-center rounded-full bg-accent/10 text-xs font-semibold text-accent">{(o.name || o.email || "?").slice(0, 1).toUpperCase()}</span>}
+              <span className="min-w-0"><span className="block truncate font-medium">{o.name || o.email}</span>{o.name && <span className="block truncate text-xs text-muted">{o.email}</span>}</span>
+            </button>
+          ) : (
+            <Button key={o.key} size="sm" variant={PRIMARY_KEYS.has(o.key) ? "primary" : "ghost"} loading={busy && sel[0] === o.key} disabled={busy}
+              title={o.detail} onClick={() => pick(o.key)}>
+              {PRIMARY_KEYS.has(o.key) && <Check className="size-3.5" />} {o.label}
+            </Button>
+          ))}
+        </div>
+        {input && (typing || !choices.length ? (
+          <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); if (validEmail) { setSel([input.key]); onAnswer({ text: email.trim() }); } }}>
+            <input type="email" autoFocus={typing} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@company.com"
+              className="h-9 min-w-0 flex-1 rounded-lg border border-border bg-surface-2 px-3 text-sm outline-none focus:border-accent sm:max-w-xs" />
+            <Button size="sm" variant="primary" type="submit" disabled={!validEmail || busy} loading={busy && sel[0] === input.key}><Check className="size-3.5" /> Use this address</Button>
+          </form>
+        ) : (
+          <button type="button" onClick={() => setTyping(true)} className="text-xs font-medium text-accent hover:underline cursor-pointer">{input.label}</button>
         ))}
       </div>
-    ) : null;
+    );
   }
+
   const toggle = (k: string) => {
     if (!enabled) return;
     if (k === "everything") return setSel((s) => (s.includes(k) ? [] : [k]));
@@ -193,7 +226,7 @@ export function InputOptions({ task, enabled, onAnswer, busy }: { task: Task; en
       </div>
       {enabled && (
         <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="primary" disabled={!sel.length} loading={busy} onClick={() => onAnswer(sel)}>
+          <Button size="sm" variant="primary" disabled={!sel.length} loading={busy} onClick={() => onAnswer({ keys: sel })}>
             <Check className="size-3.5" /> {sel.length ? `Continue with ${sel.length} selected` : "Pick an option"}
           </Button>
           <span className="text-xs text-muted">…or type your answer below.</span>

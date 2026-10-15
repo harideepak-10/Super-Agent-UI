@@ -3,11 +3,12 @@ import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Plus, Search, Users } from "lucide-react";
 import { del, get, patch, post } from "@/api/client";
-import { asList, errMsg, fmtDate, timeAgo } from "@/lib/utils";
+import { asList, errMsg, timeAgo } from "@/lib/utils";
 import { Badge, Button, Card, Empty, Field, Input, Loading, Modal, PageHeader, Table, Td, Textarea } from "@/components/ui";
 import { Avatar } from "@/components/Layout";
 import { toast } from "@/components/toast";
 import { CustomerChannels } from "@/components/CustomerChannels";
+import { InteractionRow } from "@/components/Interaction";
 
 export function CustomersList() {
   const qc = useQueryClient();
@@ -102,16 +103,7 @@ export function CustomerDetail() {
             <p className="border-b border-border px-5 py-3 text-sm font-medium">Interaction history</p>
             <div className="relative space-y-5 px-5 py-4">
               {asList(hist.data).length === 0 && <p className="py-6 text-center text-sm text-muted">No interactions yet</p>}
-              {asList(hist.data).map((i: any) => (
-                <div key={i.id} className="flex gap-3">
-                  <div className="mt-1.5 size-2 shrink-0 rounded-full bg-accent" />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2"><Badge>{i.interaction_type}</Badge><span className="text-xs text-muted">{fmtDate(i.created_at)}</span></div>
-                    <p className="mt-1 text-sm">{i.summary}</p>
-                    {i.task && <Link to={`/chat?task=${i.task}`} className="text-xs text-muted hover:text-accent">View task →</Link>}
-                  </div>
-                </div>
-              ))}
+              {asList(hist.data).map((i: any) => <InteractionRow key={i.id} i={i} />)}
             </div>
           </Card>
         </div>

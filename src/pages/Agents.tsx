@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Bot, Check, MessageSquare, Plus, RefreshCw, Trash2, Radio } from "lucide-react";
+import { ArrowLeft, Bot, Wand2, Check, MessageSquare, Plus, RefreshCw, Trash2, Radio } from "lucide-react";
 import { del, get, patch, post } from "@/api/client";
 import type { Agent, Task } from "@/api/types";
 import { asList, cn, errMsg, eur, timeAgo } from "@/lib/utils";
 import { useLiveSocket } from "@/lib/useLiveSocket";
+import { useMe } from "@/lib/useMe";
 import { Badge, Button, Card, Empty, ErrorBox, Field, Input, Loading, Modal, PageHeader, Select, StatusBadge, Table, Tabs, Td, Textarea, Toggle } from "@/components/ui";
 import { AgentIcon } from "@/components/AgentIcon";
 import { toast } from "@/components/toast";
@@ -88,13 +89,15 @@ export function AgentLibrary() {
 export function AgentsList() {
   const q = useQuery<Agent[]>({ queryKey: ["agents"], queryFn: async () => asList(await get("/agents/")) });
   const [creating, setCreating] = useState(false);
+  const me = useMe();
   const def = useQuery({ queryKey: ["agents", "default"], queryFn: () => get("/agents/default/"), retry: false, staleTime: 300_000 });
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
       <PageHeader title="Agents" subtitle="Your AI workforce. Hire more from the marketplace or build your own."
         actions={<>
           <Link to="/agents/library"><Button>Marketplace</Button></Link>
-          <Button variant="primary" onClick={() => setCreating(true)}><Plus className="size-4" /> Build your own</Button>
+          {me.isAdmin && <Link to="/agents/builder"><Button variant="primary"><Wand2 className="size-4" /> Agent Builder</Button></Link>}
+          <Button variant={me.isAdmin ? "secondary" : "primary"} onClick={() => setCreating(true)}><Plus className="size-4" /> Build manually</Button>
         </>} />
       {def.data && (
         <Card className="mb-4 flex flex-wrap items-start gap-4 p-5">
@@ -122,7 +125,7 @@ export function AgentsList() {
                   <AgentIcon type={a.agent_type} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{a.name}</p>
-                    <p className="text-xs text-muted capitalize">{a.agent_type} agent</p>
+                    <p className="text-xs text-muted capitalize">{a.agent_type} agent{a.is_shared && <span className="ml-1.5 rounded bg-accent/10 px-1.5 py-0.5 text-[10px] font-semibold text-accent normal-case">Built · shared</span>}</p>
                   </div>
                   <StatusBadge status={a.is_active === false ? "paused" : "active"} />
                 </div>

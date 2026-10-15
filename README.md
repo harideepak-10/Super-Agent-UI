@@ -38,9 +38,9 @@ Build for production: `npm run build` → static files in `dist/`. `public/_redi
 | `/tasks`, `/tasks/new` | Task list with filters/search, New Task form (attach files / folders) | `/tasks/`, `/search/tasks/`, `/tasks/new-task-form/`, `/tasks/create/` |
 | `/chat` | Conversations + live trace + inline approvals, file attachments, agent questions (`needs_input`) and document View / Download | `/tasks/*`, `/tasks/documents/<id>/view|download/`, `ws/tasks/<id>/` |
 | `/inbox`, `/inbox/:id` | Approvals: awaiting, history, tool rules, who approves (per-agent policy) | `/approvals/*`, `/approvals/policies/` |
-| `/crm` | Deals pipeline (drag & drop), follow-ups, lead scores, inactive contacts, customer overview | `/crm/*` |
+| `/crm` | Deals pipeline (drag & drop), follow-ups, lead scores, inactive contacts, customer overview with logged email / Telegram / WhatsApp activity, Gmail sync | `/crm/*`, `/crm/activity/sync/` |
 | `/business`, `/business/:page` | Business onboarding (upload → review → confirm → import → hire agents), records browser + CSV export, dynamic dashboards | `/business/*` |
-| `/agents`, `/agents/library`, `/agents/:id` | My agents, template library, agent detail (overview / tasks / live / audit / settings) | `/agents/*`, `ws/agents/<id>/live/` |
+| `/agents`, `/agents/library`, `/agents/builder`, `/agents/:id` | My agents, template library, Agent Builder (Admin: describe → preview → create), agent detail | `/agents/*`, `/agents/builder/*`, `ws/agents/<id>/live/` |
 | `/workflows`, `/workflows/:id` | Step-list builder + runs | `/workflows/*` |
 | `/customers`, `/customers/:id` | Customer memory + interaction timeline | `/memory/*` |
 | `/costs` · `/audit` · `/compliance` · `/qa` | Governance | `/costs/*`, `/audit/*`, `/compliance/*`, `/qa/*` |
@@ -69,6 +69,7 @@ src/
 - **Agent questions:** a task with status `needs_input` shows its question (`result`) with `input_options` as chips; picking sends `selected_options` in the same conversation (typing an answer works too).
 - **Documents:** `task.documents` render with View (PDF / image / text in a viewer, Word / PPT / Excel as preview text) and Download. Files are fetched through the API client because Django sends `X-Frame-Options: DENY`. Google Drive links show only when the user asked for Drive.
 - **Default Assistant:** with no agent picked (no `agent_id`), the backend's built-in Default Assistant answers. Pickers show it first; its "hire this agent?" question (`input_options` group `hire`) is a Yes / Not now tap, and a `hired_agent` in the response selects that agent for the next message. Chat suggestions come from `/quick-tasks/`.
+- **One-tap questions:** `input_options` groups `hire`, `handoff`, `crm_customer_exists` and `recipient` (with a typed-email option) are answered with one tap; `topics` / `format` stay multi-select. Answers are sent to the agent that asked (`task.agent`, or none for the Default Assistant), and the picker switches to it so a typed reply reaches it too. `handed_off_to` selects the agent the work was sent to.
 - **Connections:** Settings → Connected apps shows `/integrations/status/` (what agents can use, what's missing).
 - **Clarifications:** `/tasks/create/` 400s with `needs_clarification` / `needs_file_selection` are shown as agent messages (Drive files become clickable chips).
 

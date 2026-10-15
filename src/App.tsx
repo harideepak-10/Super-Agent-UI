@@ -18,6 +18,7 @@ import CRM from "@/pages/CRM";
 import BusinessHub, { BusinessPage } from "@/pages/Business";
 import BusinessSetup from "@/pages/BusinessSetup";
 import { AgentDetail, AgentLibrary, AgentsList } from "@/pages/Agents";
+import AgentBuilder from "@/pages/AgentBuilder";
 import { WorkflowEditor, WorkflowsList } from "@/pages/Workflows";
 import { CustomerDetail, CustomersList } from "@/pages/Customers";
 import Costs from "@/pages/governance/Costs";
@@ -65,6 +66,7 @@ export default function App() {
           <Route path="business/:page" element={<BusinessPage />} />
           <Route path="agents" element={<AgentsList />} />
           <Route path="agents/library" element={<AgentLibrary />} />
+          <Route path="agents/builder" element={<AgentBuilder />} />
           <Route path="agents/:id" element={<AgentDetail />} />
           <Route path="workflows" element={<WorkflowsList />} />
           <Route path="workflows/:id" element={<WorkflowEditor />} />

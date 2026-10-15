@@ -1,7 +1,12 @@
 export type TaskStatus = "queued" | "running" | "waiting_approval" | "needs_input" | "completed" | "failed" | "cancelled";
 
 /** A choice offered when a task stops with status "needs_input" (topics in a file, or how to show a report). */
-export type TaskOption = { key: string; label: string; detail?: string; group?: "topics" | "format" | string };
+export type TaskOption = {
+  key: string; label: string; detail?: string;
+  /** topics / format (file flows) · hire / handoff (Default Assistant) · recipient (email) · crm_customer_exists */
+  group?: "topics" | "format" | "hire" | "handoff" | "recipient" | "crm_customer_exists" | string;
+  input?: "email"; email?: string; name?: string; agent_id?: string; agent_name?: string; prompt?: string; reply?: string;
+};
 
 /** A file uploaded with a task / chat message. */
 export type TaskFile = {
@@ -73,6 +78,8 @@ export type Agent = {
   llm_model?: string;
   tools?: string[];
   is_active?: boolean;
+  /** built with the Agent Builder — shared with the whole workspace, only the Admin can change it */
+  is_shared?: boolean;
   created_at?: string;
 };
 

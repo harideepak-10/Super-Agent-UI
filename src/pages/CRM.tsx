@@ -1,14 +1,15 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlarmClock, CalendarClock, Check, Flame, Handshake, Plus, Snowflake, StickyNote, Thermometer, Trash2, TrendingUp, Trophy, UserX } from "lucide-react";
+import { AlarmClock, CalendarClock, Check, RefreshCw, Flame, Handshake, Plus, Snowflake, StickyNote, Thermometer, Trash2, TrendingUp, Trophy, UserX } from "lucide-react";
 import { del, get, patch, post } from "@/api/client";
-import { asList, cn, errMsg, fmtDate, money, timeAgo } from "@/lib/utils";
+import { asList, cn, errMsg, money, timeAgo } from "@/lib/utils";
 import { useMe } from "@/lib/useMe";
 import { Badge, Button, Card, Empty, ErrorBox, Field, Input, Loading, Modal, PageHeader, Select, Tabs, Textarea } from "@/components/ui";
 import { Drawer } from "@/components/Drawer";
 import { Avatar } from "@/components/Layout";
 import { toast } from "@/components/toast";
 import { CustomerChannels } from "@/components/CustomerChannels";
+import { InteractionRow } from "@/components/Interaction";
 
 const STAGES = [
   { v: "new", l: "New", c: "bg-slate-400" },
@@ -37,7 +38,8 @@ export default function CRM() {
 
   return (
     <div className="mx-auto max-w-[1400px] p-4 sm:p-6 lg:p-8">
-      <PageHeader title="CRM" subtitle="Deals, follow-ups and lead scores — powered by your customer memory and the CRM Agent." />
+      <PageHeader title="CRM" subtitle="Deals, follow-ups and lead scores — powered by your customer memory and the CRM Agent."
+        actions={<SyncActivity />} />
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi icon={Handshake} label="Open deals" value={p.open_deals ?? "—"} tone="accent" />
         <Kpi icon={TrendingUp} label="Open pipeline" value={sumByCurrency(p.open_value_by_currency)} tone="info" />
@@ -322,6 +324,26 @@ function Inactive({ onCustomer }: { onCustomer: (e: string) => void }) {
   );
 }
 
+/* ─────────────── Gmail → CRM activity sync ─────────────── */
+// Messages agents send are logged automatically; this pulls in mail sent / received in Gmail right now
+// (the backend also syncs every 15 minutes and when the CRM is opened).
+function SyncActivity() {
+  const qc = useQueryClient();
+  const sync = useMutation({
+    mutationFn: () => post("/crm/activity/sync/"),
+    onSuccess: (r: any) => {
+      if (r?.reason === "gmail_not_connected") return toast.err("Connect Gmail in Connected apps to sync customer emails.");
+      if (r?.reason === "no_customers") return toast.ok("No customers yet — nothing to sync.");
+      if (r?.reason === "gmail_unavailable") return toast.err("Couldn't reach Gmail — reconnect it in Connected apps.");
+      toast.ok(r?.logged ? `Logged ${r.logged} new message${r.logged === 1 ? "" : "s"} from Gmail` : "Up to date — no new customer emails");
+      qc.invalidateQueries({ queryKey: ["crm"] });
+      qc.invalidateQueries({ queryKey: ["customer"] });
+    },
+    onError: (e) => toast.err(errMsg(e)),
+  });
+  return <Button loading={sync.isPending} onClick={() => sync.mutate()} title="Pull emails exchanged with your customers from Gmail"><RefreshCw className="size-4" /> Sync activity</Button>;
+}
+
 /* ─────────────── Customer overview drawer ─────────────── */
 function CustomerOverview({ email, onClose }: { email: string | null; onClose: () => void }) {
   const qc = useQueryClient();
@@ -365,10 +387,9 @@ function CustomerOverview({ email, onClose }: { email: string | null; onClose: (
               </div>
             ))}
           </Section>
-          <Section title="Recent interactions">
-            {asList(d.recent_interactions).map((i: any, k: number) => (
-              <div key={k} className="flex gap-3 text-sm"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-accent" /><div><p>{i.summary}</p><p className="text-xs text-muted">{i.type} · {fmtDate(i.at)}</p></div></div>
-            ))}
+          <Section title="Recent activity">
+            {!asList(d.recent_interactions).length && <p className="text-sm text-muted">Nothing yet — emails, Telegram and WhatsApp messages with this customer show up here automatically.</p>}
+            <div className="space-y-4">{asList(d.recent_interactions).map((i: any, k: number) => <InteractionRow key={k} i={i} />)}</div>
           </Section>
           <Section title="Add a note">
             <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Call: interested in the premium plan" />

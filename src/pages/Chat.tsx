@@ -13,7 +13,7 @@ import { ApprovalCard } from "@/components/ApprovalCard";
 import { Markdown } from "@/components/Markdown";
 import { toast } from "@/components/toast";
 import { useAuth } from "@/store/auth";
-import { AttachButtons, AttachmentChips, DropZone, InputOptions, SentFiles, TaskDocuments, Uploading, taskBody, useAttachments } from "@/components/TaskFiles";
+import { type Answer, AttachButtons, AttachmentChips, DropZone, InputOptions, SentFiles, TaskDocuments, Uploading, taskBody, useAttachments } from "@/components/TaskFiles";
 import { Avatar } from "@/components/Layout";
 
 const ACTIVE = ["queued", "running", "waiting_approval"];
@@ -35,7 +35,7 @@ function groupConversations(tasks: Task[]): Convo[] {
 }
 
 /* ─────────────── one task = user prompt + agent turn ─────────────── */
-function TaskTurn({ taskId, initial, isLast, onAnswer, answering }: { taskId: string; initial: Task; isLast: boolean; onAnswer: (keys: string[]) => void; answering: boolean }) {
+function TaskTurn({ taskId, initial, isLast, onAnswer, answering }: { taskId: string; initial: Task; isLast: boolean; onAnswer: (t: Task, a: Answer) => void; answering: boolean }) {
   const qc = useQueryClient();
   const user = useAuth((s) => s.user);
   const [liveSteps, setLiveSteps] = useState<TaskStep[]>([]);
@@ -114,7 +114,7 @@ function TaskTurn({ taskId, initial, isLast, onAnswer, answering }: { taskId: st
             <div className={cn("space-y-3 rounded-2xl rounded-tl-sm border bg-surface px-4 py-3", asking ? "border-warn/40" : "border-border")}>
               {asking && <p className="flex items-center gap-1.5 text-xs font-semibold text-warn"><HelpCircle className="size-3.5" /> {isLast ? "Your agent needs an answer to continue" : "Answered below"}</p>}
               <Markdown text={task.result} />
-              {asking && <InputOptions task={task} enabled={isLast} busy={answering} onAnswer={onAnswer} />}
+              {asking && <InputOptions task={task} enabled={isLast} busy={answering} onAnswer={(a) => onAnswer(task, a)} />}
             </div>
           )}
 
@@ -205,9 +205,11 @@ export default function Chat() {
   useEffect(() => { setNotice(null); }, [current?.key]);
 
   const send = useMutation({
-    mutationFn: ({ prompt, selected }: { prompt?: string; selected?: string[] }) => {
-      const files = selected ? [] : attach.items;
-      const body = taskBody({ prompt: prompt ?? "", priority: urgent ? "urgent" : "routine", conversation_id: conversationId, ...(agentId ? { agent_id: agentId } : {}), ...(selected?.length ? { selected_options: selected } : {}) }, files);
+    // `agent` (answers only): reply to the agent that asked — null = Default Assistant — whatever the picker shows
+    mutationFn: ({ prompt, selected, answer, agent }: { prompt?: string; selected?: string[]; answer?: boolean; agent?: string | null }) => {
+      const files = answer ? [] : attach.items;
+      const who = answer ? agent : agentId || null;
+      const body = taskBody({ prompt: prompt ?? "", priority: urgent ? "urgent" : "routine", conversation_id: conversationId, ...(who ? { agent_id: who } : {}), ...(selected?.length ? { selected_options: selected } : {}) }, files);
       return post<Task>("/tasks/create/", body);
     },
     onSuccess: (t: any, v) => {
@@ -216,7 +218,11 @@ export default function Chat() {
         qc.invalidateQueries({ queryKey: ["agents"] });
         setAgentId(t.hired_agent.id);
       }
-      if (!v.selected) { setDraft(""); attach.clear(); }
+      if (t?.handed_off_to) {
+        toast.ok(`Sent to ${t.handed_off_to.name} — it's selected for your next message`);
+        setAgentId(t.handed_off_to.id);
+      }
+      if (!v.answer) { setDraft(""); attach.clear(); }
       setNotice(null);
       qc.setQueryData<Task[]>(["tasks"], (old) => [t, ...(old ?? [])]);
       qc.invalidateQueries({ queryKey: ["tasks"] });
@@ -230,7 +236,12 @@ export default function Chat() {
   });
 
   const submit = () => { const p = draft.trim(); if ((p || attach.items.length) && !send.isPending) send.mutate({ prompt: p }); };
-  const lastId = turns[turns.length - 1]?.id;
+  const last = turns[turns.length - 1];
+  const lastId = last?.id;
+  // an agent is waiting for an answer → a typed reply goes to that agent (the backend matches the question by agent)
+  useEffect(() => {
+    if (last?.status === "needs_input" && last.agent !== undefined) setAgentId(last.agent ?? "");
+  }, [last?.id, last?.status]); // eslint-disable-line react-hooks/exhaustive-deps
   const newChat = () => { setNewConvoId(uuid()); setParams({}); setShowList(false); };
 
   // Quick Tasks: the user's most-used prompts, topped up with defaults the workspace can actually run
@@ -284,7 +295,7 @@ export default function Chat() {
                 </div>
               </div>
             )}
-            {turns.map((t) => <TaskTurn key={t.id} taskId={t.id} initial={t} isLast={t.id === lastId && !send.isPending} answering={send.isPending && !!send.variables?.selected} onAnswer={(keys) => send.mutate({ selected: keys })} />)}
+            {turns.map((t) => <TaskTurn key={t.id} taskId={t.id} initial={t} isLast={t.id === lastId && !send.isPending} answering={send.isPending && !!send.variables?.answer} onAnswer={(task, a) => send.mutate({ selected: a.keys, prompt: a.text, answer: true, agent: task.agent ?? null })} />)}
             {notice && (
               <div className="flex gap-3">
                 <AgentIcon type="default" />
@@ -334,8 +345,8 @@ export default function Chat() {
               >
                 <Zap className="size-3.5" /> {urgent ? "Urgent" : "Routine"}
               </button>
-              <span className="ml-auto text-[11px] text-muted">{send.isPending && attach.items.length > 0 && !send.variables?.selected ? <Uploading /> : `${draft.length}/500`}</span>
-              <Button variant="primary" size="sm" onClick={submit} loading={send.isPending && !send.variables?.selected} disabled={!draft.trim() && !attach.items.length}>
+              <span className="ml-auto text-[11px] text-muted">{send.isPending && attach.items.length > 0 && !send.variables?.answer ? <Uploading /> : `${draft.length}/500`}</span>
+              <Button variant="primary" size="sm" onClick={submit} loading={send.isPending && !send.variables?.answer} disabled={!draft.trim() && !attach.items.length}>
                 <Send className="size-3.5" /> Send
               </Button>
             </div>
