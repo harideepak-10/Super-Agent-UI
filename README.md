@@ -38,15 +38,15 @@ Build for production: `npm run build` → static files in `dist/`. `public/_redi
 | `/tasks`, `/tasks/new` | Task list with filters/search, New Task form (attach files / folders) | `/tasks/`, `/search/tasks/`, `/tasks/new-task-form/`, `/tasks/create/` |
 | `/chat` | Conversations + live trace + inline approvals, file attachments, agent questions (`needs_input`) and document View / Download | `/tasks/*`, `/tasks/documents/<id>/view|download/`, `ws/tasks/<id>/` |
 | `/inbox`, `/inbox/:id` | Approvals: awaiting, history, tool rules, who approves (per-agent policy) | `/approvals/*`, `/approvals/policies/` |
-| `/crm` | Deals pipeline (drag & drop), follow-ups, lead scores, inactive contacts, customer overview with logged email / Telegram / WhatsApp activity, Gmail sync | `/crm/*`, `/crm/activity/sync/` |
+| `/crm` | Deals pipeline (drag & drop), follow-ups, lead scores, inactive contacts, customer overview with logged email / Telegram / WhatsApp activity, Gmail sync, customer reports (one customer or all, on screen + PDF) | `/crm/*`, `/crm/activity/sync/`, `/crm/report/`, `/crm/report/pdf/` |
 | `/business`, `/business/:page` | Business onboarding (upload → review → confirm → import → hire agents), records browser + CSV export, dynamic dashboards | `/business/*` |
 | `/agents`, `/agents/library`, `/agents/builder`, `/agents/:id` | My agents, template library, Agent Builder (Admin: describe → preview → create), agent detail | `/agents/*`, `/agents/builder/*`, `ws/agents/<id>/live/` |
-| `/workflows`, `/workflows/:id` | Step-list builder + runs | `/workflows/*` |
+| `/workflows`, `/workflows/:id` | Step-list builder, schedule (daily / weekly / monthly at a time, IST) + runs | `/workflows/*` |
 | `/customers`, `/customers/:id` | Customer memory + interaction timeline | `/memory/*` |
 | `/costs` · `/audit` · `/compliance` · `/qa` | Governance | `/costs/*`, `/audit/*`, `/compliance/*`, `/qa/*` |
 | `/settings/*` | Profile, connected apps & channels, team (Admin / Manager / Member, manager assignment, activity), notifications | `/profile/*`, `/integrations/*`, `/team/*`, `/notifications/settings/` |
 
-Role-aware UI: the current role comes from the `header` of `/profile/settings/` (`owner` = Admin). Admin-only actions
+Role-aware UI (matches the backend's checks): budget = Admin; delete a customer = Admin / Manager; change or delete an agent = whoever hired it or the Admin (built agents: Admin). The current role comes from the `header` of `/profile/settings/` (`owner` = Admin). Admin-only actions
 (confirm business profile, hire recommended agents, approval policies, role changes) are hidden for others.
 
 Global: `Ctrl/⌘ K` search (`/search/`), notification bell (`/notifications/*` + `ws/notifications/`), light/dark toggle.

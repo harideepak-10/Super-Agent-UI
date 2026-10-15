@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowLeft, ArrowUp, Play, Plus, RotateCcw, Trash2, Workflow as WfIcon, X, CheckCircle2, XCircle, Circle, PauseCircle } from "lucide-react";
+import { ArrowDown, ArrowLeft, Clock, ArrowUp, Play, Plus, RotateCcw, Trash2, Workflow as WfIcon, X, CheckCircle2, XCircle, Circle, PauseCircle } from "lucide-react";
 import { del, get, patch, post } from "@/api/client";
 import { asList, cn, errMsg, fmtDate, pretty, timeAgo } from "@/lib/utils";
-import { Button, Card, Code, Empty, ErrorBox, Field, Input, Loading, PageHeader, StatusBadge, Tabs, Textarea, Toggle } from "@/components/ui";
+import { Button, Card, Code, Empty, ErrorBox, Field, Input, Loading, PageHeader, Select, StatusBadge, Tabs, Textarea, Toggle } from "@/components/ui";
 import { toast } from "@/components/toast";
 
 type Step = { tool: string; input: any; label: string };
@@ -32,7 +32,8 @@ export function WorkflowsList() {
                     </span>
                   ))}
                 </div>
-                <p className="mt-3 text-xs text-muted">{w.step_count ?? asList(w.steps).length} steps · updated {timeAgo(w.updated_at)}</p>
+                {w.schedule_enabled && w.schedule_description && <p className="mt-3 flex items-center gap-1.5 text-xs font-medium text-accent"><Clock className="size-3.5" /> Runs {w.schedule_description}</p>}
+                <p className={cn("text-xs text-muted", w.schedule_enabled && w.schedule_description ? "mt-1" : "mt-3")}>{w.step_count ?? asList(w.steps).length} steps · updated {timeAgo(w.updated_at)}</p>
               </Card>
             </Link>
           ))}
@@ -124,6 +125,69 @@ function Runs({ id }: { id: string }) {
   );
 }
 
+/* ─────────────── schedule: daily / weekly / monthly at a time (IST) ─────────────── */
+const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const hhmm = (t?: string | null) => (t ? String(t).slice(0, 5) : "");
+
+function scheduleBody(wf: any) {
+  const time = hhmm(wf.schedule_time);
+  if (!time) return wf.schedule_enabled === false ? { schedule_enabled: false } : {};
+  const freq = wf.schedule_frequency || "daily";
+  return {
+    schedule_time: time, schedule_enabled: wf.schedule_enabled !== false, schedule_frequency: freq,
+    ...(freq === "weekly" ? { schedule_weekday: wf.schedule_weekday ?? 0 } : {}),
+    ...(freq === "monthly" ? { schedule_month_day: wf.schedule_month_day ?? 1 } : {}),
+  };
+}
+
+function describe(wf: any) {
+  const t = hhmm(wf.schedule_time);
+  if (!t) return "";
+  const at = `at ${t} IST`;
+  if (wf.schedule_frequency === "weekly") return `every ${WEEKDAYS[wf.schedule_weekday ?? 0]} ${at}`;
+  if (wf.schedule_frequency === "monthly") {
+    const d = wf.schedule_month_day ?? 1;
+    if (d >= 31) return `on the last day of every month ${at}`;
+    const sfx = d >= 11 && d <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as any)[d % 10] ?? "th";
+    return `on the ${d}${sfx} of every month ${at}`;
+  }
+  return `every day ${at}`;
+}
+
+function ScheduleCard({ wf, set }: { wf: any; set: (p: any) => void }) {
+  const on = !!hhmm(wf.schedule_time) && wf.schedule_enabled !== false;
+  const freq = wf.schedule_frequency || "daily";
+  return (
+    <Card className="space-y-4 p-5">
+      <div className="flex items-center justify-between gap-3">
+        <div><p className="flex items-center gap-1.5 font-medium"><Clock className="size-4 text-accent" /> Schedule</p>
+          <p className="text-xs text-muted">{on ? `Runs ${describe(wf)}` : "Runs only when you press Run"}</p></div>
+        <Toggle checked={on} onChange={(v) => set(v ? { schedule_enabled: true, schedule_time: hhmm(wf.schedule_time) || "09:00", schedule_frequency: freq } : { schedule_enabled: false })} />
+      </div>
+      {on && (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field label="How often">
+            <Select value={freq} onChange={(e) => set({ schedule_frequency: e.target.value })}>
+              <option value="daily">Every day</option><option value="weekly">Every week</option><option value="monthly">Every month</option>
+            </Select>
+          </Field>
+          {freq === "weekly" && (
+            <Field label="On"><Select value={wf.schedule_weekday ?? 0} onChange={(e) => set({ schedule_weekday: +e.target.value })}>{WEEKDAYS.map((d, i) => <option key={d} value={i}>{d}</option>)}</Select></Field>
+          )}
+          {freq === "monthly" && (
+            <Field label="On day" hint={(wf.schedule_month_day ?? 1) > 28 && (wf.schedule_month_day ?? 1) < 31 ? "Short months use their last day" : undefined}>
+              <Select value={wf.schedule_month_day ?? 1} onChange={(e) => set({ schedule_month_day: +e.target.value })}>
+                {Array.from({ length: 30 }, (_, i) => i + 1).map((d) => <option key={d} value={d}>{d}</option>)}<option value={31}>Last day of the month</option>
+              </Select>
+            </Field>
+          )}
+          <Field label="At (IST)"><Input type="time" value={hhmm(wf.schedule_time)} onChange={(e) => set({ schedule_time: e.target.value })} /></Field>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 export function WorkflowEditor() {
   const { id } = useParams();
   const isNew = !id || id === "new";
@@ -137,12 +201,15 @@ export function WorkflowEditor() {
   const set = (p: any) => setDraft({ ...wf, ...p });
 
   const save = useMutation({
-    mutationFn: () => (isNew ? post("/workflows/", wf) : patch(`/workflows/${id}/`, { name: wf.name, description: wf.description, steps: wf.steps, is_active: wf.is_active })),
+    mutationFn: () => {
+      const body: any = { name: wf.name, description: wf.description, steps: wf.steps, is_active: wf.is_active, ...scheduleBody(wf) };
+      return isNew ? post("/workflows/", body) : patch(`/workflows/${id}/`, body);
+    },
     onSuccess: (d: any) => { toast.ok("Workflow saved"); setDraft(null); qc.invalidateQueries({ queryKey: ["workflows"] }); qc.invalidateQueries({ queryKey: ["workflow", id] }); if (isNew && d?.id) nav(`/workflows/${d.id}`, { replace: true }); },
     onError: (e) => toast.err(errMsg(e)),
   });
   const run = useMutation({ mutationFn: () => post(`/workflows/${id}/run/`), onSuccess: () => { toast.ok("Workflow started"); setTab("runs"); qc.invalidateQueries({ queryKey: ["workflow-runs", id] }); }, onError: (e) => toast.err(errMsg(e)) });
-  const remove = useMutation({ mutationFn: () => del(`/workflows/${id}/`), onSuccess: () => { qc.invalidateQueries({ queryKey: ["workflows"] }); nav("/workflows"); } });
+  const remove = useMutation({ mutationFn: () => del(`/workflows/${id}/`), onSuccess: () => { toast.ok("Workflow deleted"); qc.invalidateQueries({ queryKey: ["workflows"] }); nav("/workflows"); }, onError: (e) => toast.err(errMsg(e)) });
 
   if (!isNew && q.isLoading) return <Loading />;
   if (!wf) return null;
@@ -151,7 +218,7 @@ export function WorkflowEditor() {
       <Link to="/workflows" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-fg"><ArrowLeft className="size-4" /> Workflows</Link>
       <PageHeader title={isNew ? "New workflow" : wf.name || "Workflow"}
         actions={<>
-          {!isNew && <Button variant="ghost" size="icon" onClick={() => remove.mutate()} title="Delete"><Trash2 className="size-4" /></Button>}
+          {!isNew && <Button variant="ghost" size="icon" loading={remove.isPending} onClick={() => { if (confirm(`Delete the workflow “${wf.name || "untitled"}”?`)) remove.mutate(); }} title="Delete"><Trash2 className="size-4" /></Button>}
           <Button loading={save.isPending} disabled={!isNew && !draft} onClick={() => save.mutate()}>Save</Button>
           {!isNew && <Button variant="primary" loading={run.isPending} disabled={!!draft} onClick={() => run.mutate()}><Play className="size-4" /> Run</Button>}
         </>} />
@@ -163,6 +230,7 @@ export function WorkflowEditor() {
             <Field label="Description"><Input value={wf.description ?? ""} onChange={(e) => set({ description: e.target.value })} /></Field>
             <div className="flex items-center justify-between"><span className="text-sm">Active</span><Toggle checked={wf.is_active !== false} onChange={(v) => set({ is_active: v })} /></div>
           </Card>
+          <ScheduleCard wf={wf} set={set} />
           <StepEditor steps={asList(wf.steps)} setSteps={(steps) => set({ steps })} tools={toolsQ.data?.tools?.available ?? []} />
         </div>
       ) : <Runs id={id!} />}

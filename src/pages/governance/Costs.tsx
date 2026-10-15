@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { get, patch } from "@/api/client";
+import { get, patch, post } from "@/api/client";
 import { asList, cn, errMsg } from "@/lib/utils";
 import { Button, Card, ErrorBox, Field, Input, Loading, Modal, PageHeader, Table, Td } from "@/components/ui";
 import { AgentIcon } from "@/components/AgentIcon";
+import { useMe } from "@/lib/useMe";
 import { toast } from "@/components/toast";
 
 export default function Costs() {
@@ -13,9 +14,11 @@ export default function Costs() {
   const creators = useQuery({ queryKey: ["costs", "creators"], queryFn: () => get("/costs/by-creator/") });
   const budget = useQuery({ queryKey: ["costs", "budget"], queryFn: () => get("/costs/budget/") });
   const [edit, setEdit] = useState(false);
+  const me = useMe(); // only the Admin can set / change the workspace budget
   const [form, setForm] = useState({ limit_eur: 50, alert_threshold_pct: 80 });
   const save = useMutation({
-    mutationFn: () => patch("/costs/budget/update/", form),
+    // no budget yet → create it (POST); otherwise update (PATCH 404s when none exists)
+    mutationFn: () => (budget.data ? patch("/costs/budget/update/", form) : post("/costs/budget/", form)),
     onSuccess: () => { toast.ok("Budget updated"); setEdit(false); qc.invalidateQueries({ queryKey: ["costs"] }); qc.invalidateQueries({ queryKey: ["dashboard"] }); },
     onError: (e) => toast.err(errMsg(e)),
   });
@@ -31,7 +34,7 @@ export default function Costs() {
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
       <PageHeader title="Costs" subtitle="LLM spend across agents and people."
-        actions={<Button onClick={() => { setForm({ limit_eur: Number(budget.data?.limit_eur ?? 50), alert_threshold_pct: Number(budget.data?.alert_threshold_pct ?? 80) }); setEdit(true); }}>Set budget</Button>} />
+        actions={me.isAdmin && <Button onClick={() => { setForm({ limit_eur: Number(budget.data?.limit_eur ?? 50), alert_threshold_pct: Number(budget.data?.alert_threshold_pct ?? 80) }); setEdit(true); }}>Set budget</Button>} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Card className="p-4"><p className="text-xs text-muted">Today</p><p className="mt-2 text-2xl font-semibold">{h.today?.cost_label ?? "€0.00"}</p><p className="mt-1 text-xs text-muted">{h.today?.tasks_label}</p></Card>

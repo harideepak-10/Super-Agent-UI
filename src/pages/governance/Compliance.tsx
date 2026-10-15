@@ -19,7 +19,7 @@ export default function Compliance() {
   const inv = () => qc.invalidateQueries({ queryKey: ["compliance"] });
 
   const resolve = useMutation({ mutationFn: (id: string) => post(`/compliance/alerts/${id}/resolve/`), onSuccess: () => { toast.ok("Alert resolved"); inv(); }, onError: (e) => toast.err(errMsg(e)) });
-  const toggle = useMutation({ mutationFn: ({ id, v }: { id: string; v: boolean }) => patch(`/compliance/policy-rules/${id}/`, { is_active: v }), onSuccess: inv });
+  const toggle = useMutation({ mutationFn: ({ id, v }: { id: string; v: boolean }) => patch(`/compliance/policy-rules/${id}/`, { is_active: v }), onSuccess: inv, onError: (e) => toast.err(errMsg(e)) });
   const create = useMutation({
     mutationFn: () => post("/compliance/policy-rules/", { ...form, required_document_types: String(form.required_document_types).split(",").map((s: string) => s.trim()).filter(Boolean) }),
     onSuccess: () => { toast.ok("Policy rule created"); setOpen(false); setForm(blank); inv(); },

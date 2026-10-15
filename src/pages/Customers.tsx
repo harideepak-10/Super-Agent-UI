@@ -6,6 +6,7 @@ import { del, get, patch, post } from "@/api/client";
 import { asList, errMsg, timeAgo } from "@/lib/utils";
 import { Badge, Button, Card, Empty, Field, Input, Loading, Modal, PageHeader, Table, Td, Textarea } from "@/components/ui";
 import { Avatar } from "@/components/Layout";
+import { useMe } from "@/lib/useMe";
 import { toast } from "@/components/toast";
 import { CustomerChannels } from "@/components/CustomerChannels";
 import { InteractionRow } from "@/components/Interaction";
@@ -63,7 +64,8 @@ export function CustomerDetail() {
   const hist = useQuery({ queryKey: ["customer", id, "interactions"], queryFn: () => get(`/memory/${id}/interactions/`) });
   const [form, setForm] = useState<any>(null);
   const save = useMutation({ mutationFn: () => patch(`/memory/${id}/`, form), onSuccess: () => { toast.ok("Saved"); setForm(null); qc.invalidateQueries({ queryKey: ["customer", id] }); }, onError: (e) => toast.err(errMsg(e)) });
-  const remove = useMutation({ mutationFn: () => del(`/memory/${id}/`), onSuccess: () => { qc.invalidateQueries({ queryKey: ["customers"] }); history.back(); } });
+  const remove = useMutation({ mutationFn: () => del(`/memory/${id}/`), onSuccess: () => { toast.ok("Customer deleted"); qc.invalidateQueries({ queryKey: ["customers"] }); history.back(); }, onError: (e) => toast.err(errMsg(e)) });
+  const me = useMe(); // deleting a customer: Admin or Manager only
   if (q.isLoading) return <Loading />;
   const c = { ...q.data, ...(form ?? {}) };
   const topics = asList(c.common_topics);
@@ -74,7 +76,7 @@ export function CustomerDetail() {
       <div className="mb-6 flex flex-wrap items-center gap-4">
         <Avatar name={c.name || c.email} className="size-12 text-base" />
         <div className="flex-1"><h1 className="text-xl font-semibold">{c.name || c.email}</h1><p className="text-sm text-muted">{c.email}{c.company && ` · ${c.company}`}</p></div>
-        <Button variant="danger" size="sm" onClick={() => remove.mutate()}>Delete</Button>
+        {me.canManage && <Button variant="danger" size="sm" loading={remove.isPending} onClick={() => { if (confirm(`Delete ${c.name || c.email} and their history?`)) remove.mutate(); }}>Delete</Button>}
       </div>
       <div className="grid gap-6 lg:grid-cols-5">
         <Card className="space-y-4 p-5 lg:col-span-2">

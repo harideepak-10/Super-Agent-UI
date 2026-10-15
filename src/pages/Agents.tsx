@@ -7,6 +7,7 @@ import type { Agent, Task } from "@/api/types";
 import { asList, cn, errMsg, eur, timeAgo } from "@/lib/utils";
 import { useLiveSocket } from "@/lib/useLiveSocket";
 import { useMe } from "@/lib/useMe";
+import { useAuth } from "@/store/auth";
 import { Badge, Button, Card, Empty, ErrorBox, Field, Input, Loading, Modal, PageHeader, Select, StatusBadge, Table, Tabs, Td, Textarea, Toggle } from "@/components/ui";
 import { AgentIcon } from "@/components/AgentIcon";
 import { toast } from "@/components/toast";
@@ -374,12 +375,17 @@ function AgentSettings({ id }: { id: string }) {
   const sync = useMutation({ mutationFn: () => post(`/agents/templates/${q.data?.template_id}/sync/`), onSuccess: () => { toast.ok("Synced with template"); qc.invalidateQueries({ queryKey: ["agent", id] }); }, onError: (e) => toast.err(errMsg(e)) });
   const remove = useMutation({ mutationFn: () => del(`/agents/${id}/delete/`), onSuccess: () => { toast.ok("Agent deleted"); qc.invalidateQueries({ queryKey: ["agents"] }); nav("/agents"); }, onError: (e) => toast.err(errMsg(e)) });
   const [confirmDel, setConfirmDel] = useState(false);
+  const me = useMe();
+  const userId = useAuth((s) => s.user?.id);
   if (q.isLoading || !a) return <Loading />;
+  // backend: hired agents belong to whoever hired them; built (shared) agents to the Admin
+  const canChange = !me.roleKnown || me.isAdmin || (!q.data?.is_shared && (q.data as any)?.created_by === userId);
   const set = (k: keyof Agent, v: any) => setForm({ ...(form ?? {}), ...(form ? {} : { name: a.name }), [k]: v } as any);
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
-      <Card className="space-y-4 p-5 lg:col-span-2">
+      {!canChange && <p className="rounded-xl border border-warn/30 bg-warn/8 px-4 py-2.5 text-sm lg:col-span-3">{q.data?.is_shared ? "Only the Admin can change this built agent." : "Only the person who hired this agent or the Admin can change it."} You can still use it.</p>}
+      <Card className={cn("space-y-4 p-5 lg:col-span-2", !canChange && "pointer-events-none opacity-60")}>
         <Field label="Name"><Input value={a.name ?? ""} onChange={(e) => set("name", e.target.value)} /></Field>
         <Field label="Description"><Input value={a.description ?? ""} onChange={(e) => set("description", e.target.value)} /></Field>
         <Field label="System prompt"><Textarea rows={8} value={a.system_prompt ?? ""} onChange={(e) => set("system_prompt", e.target.value)} className="font-mono text-xs" /></Field>
@@ -395,20 +401,20 @@ function AgentSettings({ id }: { id: string }) {
         </div>
       </Card>
       <div className="space-y-4">
-        {q.data?.template_id && (
+        {canChange && q.data?.template_id && (
           <Card className="p-5">
             <p className="text-sm font-medium">Template</p>
             <p className="mt-1 text-sm text-muted">Pull the latest prompt and tools from the template.</p>
             <Button className="mt-3" loading={sync.isPending} onClick={() => sync.mutate()}><RefreshCw className="size-4" /> Sync from template</Button>
           </Card>
         )}
-        <Card className="border-err/30 p-5">
+        {canChange && <Card className="border-err/30 p-5">
           <p className="text-sm font-medium text-err">Danger zone</p>
           <p className="mt-1 text-sm text-muted">Deleting an agent keeps its task history.</p>
           {confirmDel ? (
             <div className="mt-3 flex gap-2"><Button variant="danger" loading={remove.isPending} onClick={() => remove.mutate()}>Confirm delete</Button><Button variant="ghost" onClick={() => setConfirmDel(false)}>Cancel</Button></div>
           ) : <Button variant="danger" className="mt-3" onClick={() => setConfirmDel(true)}><Trash2 className="size-4" /> Delete agent</Button>}
-        </Card>
+        </Card>}
       </div>
     </div>
   );

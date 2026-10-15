@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlarmClock, CalendarClock, Check, RefreshCw, Flame, Handshake, Plus, Snowflake, StickyNote, Thermometer, Trash2, TrendingUp, Trophy, UserX } from "lucide-react";
+import { AlarmClock, CalendarClock, Check, FileBarChart, RefreshCw, Flame, Handshake, Plus, Snowflake, StickyNote, Thermometer, Trash2, TrendingUp, Trophy, UserX } from "lucide-react";
 import { del, get, patch, post } from "@/api/client";
 import { asList, cn, errMsg, money, timeAgo } from "@/lib/utils";
 import { useMe } from "@/lib/useMe";
@@ -10,6 +10,7 @@ import { Avatar } from "@/components/Layout";
 import { toast } from "@/components/toast";
 import { CustomerChannels } from "@/components/CustomerChannels";
 import { InteractionRow } from "@/components/Interaction";
+import { CustomerReport } from "@/components/CustomerReport";
 
 const STAGES = [
   { v: "new", l: "New", c: "bg-slate-400" },
@@ -32,6 +33,7 @@ function sumByCurrency(obj?: Record<string, string>) {
 export default function CRM() {
   const [tab, setTab] = useState<"pipeline" | "followups" | "leads" | "inactive">("pipeline");
   const [customer, setCustomer] = useState<string | null>(null);
+  const [reportAll, setReportAll] = useState(false);
   const pipeline = useQuery({ queryKey: ["crm", "pipeline"], queryFn: () => get("/crm/pipeline/") });
   const p = pipeline.data ?? {};
   const overdue = useQuery({ queryKey: ["crm", "followups", "overdue"], queryFn: () => get("/crm/follow-ups/", { status: "open", due: "overdue" }) });
@@ -39,7 +41,8 @@ export default function CRM() {
   return (
     <div className="mx-auto max-w-[1400px] p-4 sm:p-6 lg:p-8">
       <PageHeader title="CRM" subtitle="Deals, follow-ups and lead scores — powered by your customer memory and the CRM Agent."
-        actions={<SyncActivity />} />
+        actions={<><SyncActivity /><Button variant="primary" onClick={() => setReportAll(true)}><FileBarChart className="size-4" /> Customer report</Button></>} />
+      <CustomerReport open={reportAll} onClose={() => setReportAll(false)} />
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi icon={Handshake} label="Open deals" value={p.open_deals ?? "—"} tone="accent" />
         <Kpi icon={TrendingUp} label="Open pipeline" value={sumByCurrency(p.open_value_by_currency)} tone="info" />
@@ -349,6 +352,7 @@ function CustomerOverview({ email, onClose }: { email: string | null; onClose: (
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["crm", "customer", email], queryFn: () => get("/crm/customers/overview/", { email }), enabled: !!email });
   const [note, setNote] = useState("");
+  const [report, setReport] = useState(false);
   const add = useMutation({ mutationFn: () => post("/crm/notes/", { email, note }), onSuccess: () => { toast.ok("Note added"); setNote(""); qc.invalidateQueries({ queryKey: ["crm", "customer", email] }); }, onError: (e) => toast.err(errMsg(e)) });
   const d = q.data ?? {};
   const c = d.customer ?? {};
@@ -367,6 +371,8 @@ function CustomerOverview({ email, onClose }: { email: string | null; onClose: (
             </div>
             {ls && L && <div className="text-center"><p className="text-2xl font-bold">{ls.score}</p><Badge tone={L.tone as any}><L.icon className="size-3" />{L.l}</Badge></div>}
           </div>
+          {c.email && <Button onClick={() => setReport(true)} className="w-full"><FileBarChart className="size-4" /> Customer report (sales, deals, history, files)</Button>}
+          {c.email && <CustomerReport key={c.email} open={report} onClose={() => setReport(false)} customer={c.email} name={c.name} />}
           {c.interaction_summary && <Card className="p-4 text-sm text-muted">{c.interaction_summary}</Card>}
           {c.email && <Section title="Channels"><CustomerChannels email={c.email} whatsapp={"whatsapp_number" in c ? c.whatsapp_number : undefined} compact /></Section>}
           <Section title="Deals">

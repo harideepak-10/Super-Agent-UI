@@ -80,6 +80,7 @@ export type Agent = {
   is_active?: boolean;
   /** built with the Agent Builder — shared with the whole workspace, only the Admin can change it */
   is_shared?: boolean;
+  created_by?: string;
   created_at?: string;
 };
 
