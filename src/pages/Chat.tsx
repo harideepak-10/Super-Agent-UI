@@ -298,7 +298,7 @@ export default function Chat() {
             {turns.map((t) => <TaskTurn key={t.id} taskId={t.id} initial={t} isLast={t.id === lastId && !send.isPending} answering={send.isPending && !!send.variables?.answer} onAnswer={(task, a) => send.mutate({ selected: a.keys, prompt: a.text, answer: true, agent: task.agent ?? null })} />)}
             {notice && (
               <div className="flex gap-3">
-                <AgentIcon type="default" />
+                <AgentIcon type={guessType(agents.find((a) => a.id === agentId)?.name)} />
                 <div className="flex-1 space-y-2 rounded-2xl rounded-tl-sm border border-border bg-surface px-4 py-3">
                   <Markdown text={notice.message} />
                   {notice.files && notice.files.length > 0 && (
