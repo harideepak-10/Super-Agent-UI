@@ -26,7 +26,7 @@ function Inbox() {
         {pending.map((a) => (
           <button key={a.id} onClick={() => setSelected(a.id)} className={cn("block w-full px-4 py-3 text-left cursor-pointer", sel === a.id ? "bg-surface-2" : "hover:bg-surface-2/50")}>
             <div className="flex items-center justify-between gap-2">
-              <span className="font-mono text-xs text-warn">{a.tool_name}</span>
+              <span className="text-xs font-medium text-warn">{a.tool_display ?? a.tool_name}</span>
               <span className="text-[11px] text-muted">{timeAgo(a.created_at)}</span>
             </div>
             <p className="mt-1 line-clamp-2 text-sm">{a.task_prompt}</p>
@@ -51,7 +51,7 @@ function History() {
       <Table head={["Action", "Task", "Decision", "Reviewer", "Note", "When"]}>
         {done.map((a) => (
           <tr key={a.id} className="hover:bg-surface-2/40">
-            <Td><Link to={`/inbox/${a.id}`} className="font-mono text-xs hover:text-accent">{a.tool_name}</Link></Td>
+            <Td><Link to={`/inbox/${a.id}`} className="text-xs hover:text-accent">{a.tool_display ?? a.tool_name}</Link></Td>
             <Td className="max-w-xs truncate text-muted">{a.task_prompt}</Td>
             <Td><StatusBadge status={a.status} /></Td>
             <Td className="text-muted">{a.reviewer_email ?? "—"}</Td>

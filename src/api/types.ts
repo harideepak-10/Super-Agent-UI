@@ -89,6 +89,8 @@ export type Approval = {
   task: string;
   task_prompt?: string;
   tool_name: string;
+  tool_display?: string;
+  preview?: { channel?: string | null; to?: string | null; subject?: string | null; cc?: any; bcc?: any; body?: string | null } | null;
   tool_input: any;
   tool_zone?: string;
   status: string;

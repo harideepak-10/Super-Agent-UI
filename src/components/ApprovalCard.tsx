@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ShieldAlert, Check, X } from "lucide-react";
 import { get, post } from "@/api/client";
-import { errMsg, pretty, timeAgo } from "@/lib/utils";
-import { Badge, Button, Code, Spinner, StatusBadge, Textarea } from "./ui";
+import { errMsg, timeAgo } from "@/lib/utils";
+import { Badge, Button, Spinner, StatusBadge, Textarea } from "./ui";
 import { toast } from "./toast";
 
 const RISK_TONE: Record<string, any> = { low: "ok", medium: "warn", high: "err", critical: "err" };
@@ -33,8 +33,9 @@ export function ApprovalCard({ approvalId, compact, onDecided }: { approvalId: s
   const r = review.data;
   const b = basic.data;
   const status = r?.status ?? b?.status;
-  const toolName = r?.action?.display_name ?? r?.action?.tool_name ?? b?.tool_name;
+  const toolName = r?.action?.display_name ?? b?.tool_display ?? r?.action?.tool_name ?? b?.tool_name;
   const toolInput = r?.action?.tool_input ?? b?.tool_input;
+  const preview = r?.action?.preview ?? b?.preview;
   const description = r?.action?.description;
   const risk = r?.risk;
   const agentName = r?.agent?.name;
@@ -44,7 +45,7 @@ export function ApprovalCard({ approvalId, compact, onDecided }: { approvalId: s
     <div className="rounded-xl border border-warn/40 bg-warn/5">
       <div className="flex flex-wrap items-center gap-2 border-b border-warn/20 px-4 py-3">
         <ShieldAlert className="size-4 text-warn" />
-        <p className="text-sm font-medium">{agentName ? `${agentName} wants to run` : "Approval needed for"} <span className="font-mono text-warn">{toolName}</span></p>
+        <p className="text-sm">{agentName ? `${agentName} needs your OK to` : "Approval needed to"} <span className="font-semibold text-warn">{lower(toolName)}</span></p>
         <div className="ml-auto flex items-center gap-2">
           {risk?.label && <Badge tone={RISK_TONE[risk.level] ?? "warn"}>{risk.label}</Badge>}
           <StatusBadge status={status} />
@@ -53,7 +54,7 @@ export function ApprovalCard({ approvalId, compact, onDecided }: { approvalId: s
       <div className="space-y-3 p-4">
         {description && <p className="text-sm text-muted">{description}</p>}
         {risk?.description && !compact && <p className="text-xs text-muted">{risk.description}</p>}
-        <ActionPreview input={toolInput} />
+        <ActionPreview input={toolInput} preview={preview} />
         {pending ? (
           <>
             {!compact && <Textarea rows={2} placeholder="Add a note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />}
@@ -72,29 +73,54 @@ export function ApprovalCard({ approvalId, compact, onDecided }: { approvalId: s
   );
 }
 
-/** Render common tool inputs (emails, messages) as a readable preview, fallback to JSON. */
-export function ActionPreview({ input }: { input: any }) {
+const lower = (t?: string) => (t ? t.charAt(0).toLowerCase() + t.slice(1) : "");
+
+// Plumbing the agent passes along — never shown to the person approving.
+const HIDDEN = new Set(["customer", "name", "parse_mode", "chat_id", "workspace_id", "task_id", "thread_id", "message_id",
+  "draft_id", "event_id", "calendar_id", "id", "html", "is_html", "format"]);
+const label = (k: string) => k.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+const show = (v: unknown): string =>
+  Array.isArray(v) ? v.map(show).join(", ") : v && typeof v === "object" ? Object.values(v as object).map(show).join(", ") : String(v ?? "");
+
+type Preview = { channel?: string | null; to?: string | null; subject?: string | null; cc?: any; bcc?: any; body?: string | null };
+
+/** What the approver checks, in plain words: who it goes to (the person, not a chat ID),
+ *  subject and message — or the action's details as labelled rows. Never raw JSON. */
+export function ActionPreview({ input, preview }: { input: any; preview?: Preview | null }) {
   let data = input;
   if (typeof data === "string") { try { data = JSON.parse(data); } catch { /* keep */ } }
-  if (data && typeof data === "object" && !Array.isArray(data)) {
-    const to = data.to ?? data.recipient ?? data.email ?? data.chat_id ?? data.channel ?? data.phone;
-    const subject = data.subject ?? data.title;
-    const body = data.body ?? data.text ?? data.message ?? data.content;
-    if (body && typeof body === "string") {
-      const rest = Object.fromEntries(Object.entries(data).filter(([k]) => !["to", "recipient", "email", "chat_id", "channel", "phone", "subject", "title", "body", "text", "message", "content"].includes(k)));
-      return (
-        <div className="overflow-hidden rounded-lg border border-border bg-surface">
-          {(to || subject) && (
-            <div className="space-y-0.5 border-b border-border px-3 py-2 text-xs">
-              {to && <p><span className="text-muted">To:</span> {String(to)}</p>}
-              {subject && <p><span className="text-muted">Subject:</span> <span className="font-medium">{String(subject)}</span></p>}
-            </div>
-          )}
-          <p className="px-3 py-2.5 text-sm whitespace-pre-wrap">{body}</p>
-          {Object.keys(rest).length > 0 && <Code className="rounded-none border-t border-border">{pretty(rest)}</Code>}
-        </div>
-      );
-    }
+  const obj = data && typeof data === "object" && !Array.isArray(data) ? (data as Record<string, any>) : null;
+  const body = preview?.body ?? (obj && (obj.body ?? obj.text ?? obj.message ?? obj.content));
+  if (obj && body && typeof body === "string") {
+    const to = preview?.to ?? obj.to ?? obj.recipient ?? obj.email ?? obj.customer ?? obj.phone;
+    const rows: [string, string][] = [];
+    if (to) rows.push(["To", show(to)]);
+    if (preview?.cc ?? obj.cc) rows.push(["Cc", show(preview?.cc ?? obj.cc)]);
+    if (preview?.bcc ?? obj.bcc) rows.push(["Bcc", show(preview?.bcc ?? obj.bcc)]);
+    const subject = preview?.subject ?? obj.subject ?? obj.title;
+    const files = obj.attachments ?? obj.files;
+    return (
+      <div className="overflow-hidden rounded-lg border border-border bg-surface">
+        {(rows.length > 0 || subject || preview?.channel) && (
+          <div className="space-y-0.5 border-b border-border px-3 py-2 text-xs">
+            {rows.map(([k, v]) => <p key={k}><span className="text-muted">{k}:</span> {v}</p>)}
+            {subject && <p><span className="text-muted">Subject:</span> <span className="font-medium">{String(subject)}</span></p>}
+            {preview?.channel && <p><span className="text-muted">Via:</span> {preview.channel}</p>}
+          </div>
+        )}
+        <p className="px-3 py-2.5 text-sm whitespace-pre-wrap">{body}</p>
+        {files && show(files) && <p className="border-t border-border px-3 py-2 text-xs text-muted">Attachments: {show(files)}</p>}
+      </div>
+    );
   }
-  return <Code>{pretty(data) || "No input"}</Code>;
+  if (obj) {
+    const rows = Object.entries(obj).filter(([k, v]) => !HIDDEN.has(k) && v !== null && v !== "" && !(Array.isArray(v) && !v.length));
+    if (!rows.length) return null;
+    return (
+      <div className="space-y-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm">
+        {rows.map(([k, v]) => <p key={k}><span className="text-muted">{label(k)}:</span> {show(v)}</p>)}
+      </div>
+    );
+  }
+  return data ? <p className="rounded-lg border border-border bg-surface px-3 py-2 text-sm whitespace-pre-wrap">{String(data)}</p> : null;
 }
