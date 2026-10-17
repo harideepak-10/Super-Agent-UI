@@ -203,6 +203,12 @@ export default function Chat() {
     return () => { sc.removeEventListener("scroll", onScroll); ro.disconnect(); };
   }, []);
   useEffect(() => { setNotice(null); }, [current?.key]);
+  // Opening (or reloading) a chat picks the agent that chat was with, so the next message
+  // continues with it instead of silently going to the Default Assistant.
+  useEffect(() => {
+    const lastTask = current?.tasks[current.tasks.length - 1];
+    if (lastTask) setAgentId(lastTask.agent ?? "");
+  }, [current?.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const send = useMutation({
     // `agent` (answers only): reply to the agent that asked — null = Default Assistant — whatever the picker shows
