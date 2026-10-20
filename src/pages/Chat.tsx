@@ -34,6 +34,16 @@ function groupConversations(tasks: Task[]): Convo[] {
     .sort((a, b) => +new Date(b.last) - +new Date(a.last));
 }
 
+/** The backend's internal failure reasons, in words a person can act on. */
+function failReason(msg?: string | null): string {
+  const m = (msg ?? "").trim();
+  if (!m) return "The task didn't finish.";
+  if (m === "All tool calls returned errors") return "The agent couldn't finish — none of its steps worked. Open the execution trace to see why, or Retry.";
+  const inc = m.match(/^Task incomplete:\s*(.+)$/i);
+  if (inc) return `The agent couldn't finish (${inc[1]}). Open the execution trace for details, or Retry.`;
+  return m;
+}
+
 /* ─────────────── one task = user prompt + agent turn ─────────────── */
 function TaskTurn({ taskId, initial, isLast, onAnswer, answering }: { taskId: string; initial: Task; isLast: boolean; onAnswer: (t: Task, a: Answer) => void; answering: boolean }) {
   const qc = useQueryClient();
@@ -110,7 +120,7 @@ function TaskTurn({ taskId, initial, isLast, onAnswer, answering }: { taskId: st
 
           {task.status === "waiting_approval" && task.approval_id && <ApprovalCard approvalId={task.approval_id} compact />}
 
-          {task.result && task.status !== "failed" && (
+          {task.result && (task.status !== "failed" || task.result.trim() !== (task.error_message ?? "").trim()) && (
             <div className={cn("space-y-3 rounded-2xl rounded-tl-sm border bg-surface px-4 py-3", asking ? "border-warn/40" : "border-border")}>
               {asking && <p className="flex items-center gap-1.5 text-xs font-semibold text-warn"><HelpCircle className="size-3.5" /> {isLast ? "Your agent needs an answer to continue" : "Answered below"}</p>}
               <Markdown text={task.result} />
@@ -123,7 +133,7 @@ function TaskTurn({ taskId, initial, isLast, onAnswer, answering }: { taskId: st
           {task.status === "failed" && (
             <div className="flex items-start gap-2 rounded-xl border border-err/30 bg-err/5 px-4 py-3 text-sm text-err">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-              <span className="break-words">{task.error_message || "The task failed."}</span>
+              <span className="break-words">{failReason(task.error_message)}</span>
             </div>
           )}
 
