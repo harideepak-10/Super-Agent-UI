@@ -78,11 +78,13 @@ const lower = (t?: string) => (t ? t.charAt(0).toLowerCase() + t.slice(1) : "");
 // Plumbing the agent passes along — never shown to the person approving.
 const HIDDEN = new Set(["customer", "name", "parse_mode", "chat_id", "workspace_id", "task_id", "thread_id", "message_id",
   "draft_id", "event_id", "calendar_id", "id", "html", "is_html", "format"]);
-const label = (k: string) => k.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+const LABELS: Record<string, string> = { notify: "Email the attendees", send_updates: "Email the attendees" };
+const label = (k: string) => LABELS[k] ?? k.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
 const show = (v: unknown): string =>
-  Array.isArray(v) ? v.map(show).join(", ") : v && typeof v === "object" ? Object.values(v as object).map(show).join(", ") : String(v ?? "");
+  typeof v === "boolean" ? (v ? "Yes" : "No")
+    : Array.isArray(v) ? v.map(show).join(", ") : v && typeof v === "object" ? Object.values(v as object).map(show).join(", ") : String(v ?? "");
 
-type Preview = { channel?: string | null; to?: string | null; subject?: string | null; cc?: any; bcc?: any; body?: string | null };
+type Preview = { channel?: string | null; to?: string | null; subject?: string | null; cc?: any; bcc?: any; body?: string | null; meeting?: string | null };
 
 /** What the approver checks, in plain words: who it goes to (the person, not a chat ID),
  *  subject and message — or the action's details as labelled rows. Never raw JSON. */
@@ -115,9 +117,10 @@ export function ActionPreview({ input, preview }: { input: any; preview?: Previe
   }
   if (obj) {
     const rows = Object.entries(obj).filter(([k, v]) => !HIDDEN.has(k) && v !== null && v !== "" && !(Array.isArray(v) && !v.length));
-    if (!rows.length) return null;
+    if (!rows.length && !preview?.meeting) return null;
     return (
       <div className="space-y-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm">
+        {preview?.meeting && <p><span className="text-muted">Meeting:</span> <span className="font-medium">{preview.meeting}</span></p>}
         {rows.map(([k, v]) => <p key={k}><span className="text-muted">{label(k)}:</span> {show(v)}</p>)}
       </div>
     );

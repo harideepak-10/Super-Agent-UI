@@ -51,8 +51,8 @@ export function CustomersList() {
   );
 }
 
-const FIELDS: [string, string, "input" | "textarea"][] = [
-  ["name", "Name", "input"], ["company", "Company", "input"], ["role", "Role", "input"], ["preferred_language", "Preferred language", "input"],
+const FIELDS: [string, string, "input" | "email" | "textarea"][] = [
+  ["name", "Name", "input"], ["email", "Email", "email"], ["company", "Company", "input"], ["role", "Role", "input"], ["preferred_language", "Preferred language", "input"],
   ["communication_style", "Communication style", "input"], ["urgency_preference", "Urgency preference", "input"],
   ["custom_instructions", "Custom instructions for agents", "textarea"], ["agent_notes", "Agent notes", "textarea"],
 ];
@@ -63,35 +63,49 @@ export function CustomerDetail() {
   const q = useQuery({ queryKey: ["customer", id], queryFn: () => get(`/memory/${id}/`) });
   const hist = useQuery({ queryKey: ["customer", id, "interactions"], queryFn: () => get(`/memory/${id}/interactions/`) });
   const [form, setForm] = useState<any>(null);
-  const save = useMutation({ mutationFn: () => patch(`/memory/${id}/`, form), onSuccess: () => { toast.ok("Saved"); setForm(null); qc.invalidateQueries({ queryKey: ["customer", id] }); }, onError: (e) => toast.err(errMsg(e)) });
+  const save = useMutation({
+    mutationFn: () => patch(`/memory/${id}/`, form),
+    onSuccess: () => { toast.ok("Saved"); setForm(null); qc.invalidateQueries({ queryKey: ["customer", id] }); qc.invalidateQueries({ queryKey: ["customers"] }); },
+    onError: (e) => toast.err(errMsg(e)),
+  });
   const remove = useMutation({ mutationFn: () => del(`/memory/${id}/`), onSuccess: () => { toast.ok("Customer deleted"); qc.invalidateQueries({ queryKey: ["customers"] }); history.back(); }, onError: (e) => toast.err(errMsg(e)) });
   const me = useMe(); // deleting a customer: Admin or Manager only
   if (q.isLoading) return <Loading />;
-  const c = { ...q.data, ...(form ?? {}) };
+  const saved = q.data ?? {}; // header & channels show the saved customer, not what's being typed
+  const c = { ...saved, ...(form ?? {}) };
+  const emailChanged = form?.email !== undefined && form.email.trim().toLowerCase() !== (saved.email ?? "").toLowerCase();
+  const emailOk = !emailChanged || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
   const topics = asList(c.common_topics);
 
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
       <Link to="/customers" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-fg"><ArrowLeft className="size-4" /> Customers</Link>
       <div className="mb-6 flex flex-wrap items-center gap-4">
-        <Avatar name={c.name || c.email} className="size-12 text-base" />
-        <div className="flex-1"><h1 className="text-xl font-semibold">{c.name || c.email}</h1><p className="text-sm text-muted">{c.email}{c.company && ` · ${c.company}`}</p></div>
-        {me.canManage && <Button variant="danger" size="sm" loading={remove.isPending} onClick={() => { if (confirm(`Delete ${c.name || c.email} and their history?`)) remove.mutate(); }}>Delete</Button>}
+        <Avatar name={saved.name || saved.email} className="size-12 text-base" />
+        <div className="flex-1"><h1 className="text-xl font-semibold">{saved.name || saved.email}</h1><p className="text-sm text-muted">{saved.email}{saved.company && ` · ${saved.company}`}</p></div>
+        {me.canManage && <Button variant="danger" size="sm" loading={remove.isPending} onClick={() => { if (confirm(`Delete ${saved.name || saved.email} and their history?`)) remove.mutate(); }}>Delete</Button>}
       </div>
       <div className="grid gap-6 lg:grid-cols-5">
         <Card className="space-y-4 p-5 lg:col-span-2">
           {FIELDS.map(([k, label, type]) => (
             <Field key={k} label={label}>
-              {type === "input" ? <Input value={c[k] ?? ""} onChange={(e) => setForm({ ...(form ?? {}), [k]: e.target.value })} /> : <Textarea rows={3} value={c[k] ?? ""} onChange={(e) => setForm({ ...(form ?? {}), [k]: e.target.value })} />}
+              {type === "textarea"
+                ? <Textarea rows={3} value={c[k] ?? ""} onChange={(e) => setForm({ ...(form ?? {}), [k]: e.target.value })} />
+                : <Input type={type === "email" ? "email" : "text"} value={c[k] ?? ""} onChange={(e) => setForm({ ...(form ?? {}), [k]: e.target.value })} />}
+              {k === "email" && emailChanged && (
+                <p className={`mt-1 text-xs ${emailOk ? "text-muted" : "text-err"}`}>
+                  {emailOk ? "Agents will use this address from now on. Past history stays with this customer." : "Enter a valid email address."}
+                </p>
+              )}
             </Field>
           ))}
-          <Button variant="primary" disabled={!form} loading={save.isPending} onClick={() => save.mutate()}>Save</Button>
+          <Button variant="primary" disabled={!form || !emailOk || (emailChanged && !form.email.trim())} loading={save.isPending} onClick={() => save.mutate()}>Save</Button>
         </Card>
         <div className="space-y-6 lg:col-span-3">
-          {c.email && (
+          {saved.email && (
             <Card className="p-5">
               <p className="mb-3 text-sm font-medium">Channels</p>
-              <CustomerChannels email={c.email} whatsapp={"whatsapp_number" in c ? c.whatsapp_number : undefined} />
+              <CustomerChannels email={saved.email} whatsapp={"whatsapp_number" in saved ? saved.whatsapp_number : undefined} />
             </Card>
           )}
           {(c.interaction_summary || topics.length > 0) && (
