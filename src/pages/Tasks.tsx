@@ -11,7 +11,7 @@ import { AttachButtons, AttachmentChips, DropZone, Uploading, taskBody, useAttac
 import { toast } from "@/components/toast";
 
 const FILTERS = [
-  { v: "", l: "All" }, { v: "running", l: "Running" }, { v: "queued", l: "Queued" }, { v: "waiting_approval", l: "Needs approval" }, { v: "needs_input", l: "Needs answer" },
+  { v: "", l: "All" }, { v: "running", l: "Running" }, { v: "queued", l: "Queued" }, { v: "waiting_approval", l: "Needs approval" }, { v: "needs_input", l: "Needs answer" }, { v: "answered", l: "Answered" },
   { v: "completed", l: "Completed" }, { v: "failed", l: "Failed" }, { v: "cancelled", l: "Cancelled" },
 ];
 
@@ -33,12 +33,20 @@ export function TasksList() {
   const list = useQuery<Task[]>({ queryKey: ["tasks"], queryFn: async () => asList(await get("/tasks/")), refetchInterval: 10000 });
   const search = useQuery({ queryKey: ["search-tasks", dq], queryFn: () => get("/search/tasks/", { q: dq }), enabled: dq.length > 1 });
   const all = dq.length > 1 ? asList<Task>(search.data) : list.data ?? [];
-  const tasks = status ? all.filter((t) => t.status === status) : all;
+  // A question the user moved past (a later message in the same chat) isn't waiting any more —
+  // 54 old questions were counted as "Needs answer".
+  const latest = useMemo(() => {
+    const m: Record<string, Task> = {};
+    for (const t of list.data ?? []) if (t.conversation_id && (!m[t.conversation_id] || t.created_at > m[t.conversation_id].created_at)) m[t.conversation_id] = t;
+    return m;
+  }, [list.data]);
+  const shown = (t: Task) => (t.status === "needs_input" && t.conversation_id && latest[t.conversation_id] && latest[t.conversation_id].id !== t.id ? "answered" : t.status);
+  const tasks = status ? all.filter((t) => shown(t) === status) : all;
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
-    for (const t of list.data ?? []) c[t.status] = (c[t.status] ?? 0) + 1;
+    for (const t of list.data ?? []) c[shown(t)] = (c[shown(t)] ?? 0) + 1;
     return c;
-  }, [list.data]);
+  }, [list.data, latest]);
 
   return (
     <div className="mx-auto max-w-5xl p-4 sm:p-6 lg:p-8">
@@ -64,7 +72,7 @@ export function TasksList() {
         <Card><Empty icon={<ListIcon />} title="No tasks found" text={status || dq ? "Try another filter or search." : "Give your agents their first task."} action={<Link to="/tasks/new"><Button variant="primary"><Plus className="size-4" /> New Task</Button></Link>} /></Card>
       ) : (
         <div className="space-y-3">
-          {tasks.map((t) => <TaskRow key={t.id} t={t} />)}
+          {tasks.map((t) => <TaskRow key={t.id} t={t} status={shown(t)} />)}
         </div>
       )}
     </div>
@@ -72,12 +80,12 @@ export function TasksList() {
 }
 const ListIcon = () => <Rocket className="size-8" />;
 
-function TaskRow({ t }: { t: Task }) {
+function TaskRow({ t, status = t.status }: { t: Task; status?: string }) {
   const running = t.status === "running" || t.status === "queued";
   const pct = Math.round(t.progress_percent ?? (t.total_steps_estimate ? ((t.steps_taken ?? 0) / t.total_steps_estimate) * 100 : 0));
   return (
     <Link to={`/chat?task=${t.id}`} className="block">
-      <Card className={cn("p-4 transition hover:-translate-y-px hover:border-accent/30", (t.status === "waiting_approval" || t.status === "needs_input") && "border-warn/40")}>
+      <Card className={cn("p-4 transition hover:-translate-y-px hover:border-accent/30", (status === "waiting_approval" || status === "needs_input") && "border-warn/40")}>
         <div className="flex items-start gap-3">
           <AgentIcon type={guessType(t.agent_name)} />
           <div className="min-w-0 flex-1">
@@ -94,7 +102,7 @@ function TaskRow({ t }: { t: Task }) {
             )}
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1.5">
-            <StatusBadge status={t.status} />
+            <StatusBadge status={status} />
             <span className="text-[11px] text-muted">{timeAgo(t.created_at)}</span>
             {!running && (t.cost_eur ?? 0) > 0 && <span className="text-[11px] text-muted">{eur(t.cost_eur)}</span>}
           </div>

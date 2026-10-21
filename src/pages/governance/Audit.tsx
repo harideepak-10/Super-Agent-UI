@@ -6,6 +6,12 @@ import { get } from "@/api/client";
 import { asList, cn, fmtDate, pretty } from "@/lib/utils";
 import { Badge, Card, Code, Empty, Loading, PageHeader, Select } from "@/components/ui";
 
+/** "task_completed" → "Task Completed", from the server's own labels when it sent them. */
+function eventLabel(types: any[], value?: string): string {
+  const hit = types.find((t: any) => typeof t === "object" && (t.value ?? t.event_type ?? t.key) === value);
+  return hit?.label ?? (value ?? "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export default function Audit() {
   const [eventType, setEventType] = useState("");
   const [open, setOpen] = useState<string | null>(null);
@@ -37,8 +43,9 @@ export default function Audit() {
           <div key={e.id}>
             <button onClick={() => setOpen(open === e.id ? null : e.id)} className="flex w-full items-center gap-3 px-5 py-3 text-left hover:bg-surface-2/40 cursor-pointer">
               <ChevronRight className={cn("size-3.5 text-muted transition-transform", open === e.id && "rotate-90")} />
-              <Badge tone={e.event_type?.includes("fail") || e.event_type?.includes("reject") ? "err" : e.event_type?.includes("approv") ? "warn" : "neutral"} className="font-mono">{e.event_type}</Badge>
+              <Badge tone={e.event_type?.includes("fail") || e.event_type?.includes("reject") ? "err" : e.event_type?.includes("approv") ? "warn" : "neutral"} >{eventLabel(typeList, e.event_type)}</Badge>
               <span className="min-w-0 flex-1 truncate text-sm">
+                {(e.metadata?.agent || e.metadata?.tool) && <span className="mr-1.5">{[e.metadata?.agent, e.metadata?.tool].filter(Boolean).join(" · ")}</span>}
                 {e.resource_type && <span className="text-muted">{e.resource_type} </span>}
                 {e.resource_type === "task" && e.resource_id ? <Link onClick={(ev) => ev.stopPropagation()} to={`/chat?task=${e.resource_id}`} className="font-mono text-xs hover:text-accent">{e.resource_id.slice(0, 8)}</Link> : <span className="font-mono text-xs">{e.resource_id?.slice?.(0, 8)}</span>}
               </span>

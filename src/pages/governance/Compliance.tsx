@@ -5,6 +5,7 @@ import { get, patch, post } from "@/api/client";
 import { asList, errMsg, fmtDate } from "@/lib/utils";
 import { Badge, Button, Card, Empty, Field, Input, Loading, Modal, PageHeader, Select, StatusBadge, Table, Tabs, Td, Textarea, Toggle } from "@/components/ui";
 import { toast } from "@/components/toast";
+import { useMe } from "@/lib/useMe";
 
 const SEV: Record<string, any> = { low: "info", medium: "warn", high: "err", critical: "err" };
 const RULE_TYPES: [string, string][] = [["required_document", "Required document"], ["deadline", "Deadline"], ["both", "Document + deadline"]];
@@ -17,6 +18,7 @@ const ruleOk = (f: any) =>
 
 export default function Compliance() {
   const qc = useQueryClient();
+  const me = useMe(); // compliance rules are workspace policy: Admin or Manager
   const [tab, setTab] = useState<"alerts" | "rules">("alerts");
   const alerts = useQuery({ queryKey: ["compliance", "alerts"], queryFn: () => get("/compliance/alerts/") });
   const rules = useQuery({ queryKey: ["compliance", "rules"], queryFn: () => get("/compliance/policy-rules/") });
@@ -49,7 +51,7 @@ export default function Compliance() {
 
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
-      <PageHeader title="Compliance" subtitle="Policy rules the Compliance Agent monitors, and the alerts it raises." actions={<Button variant="primary" onClick={() => setOpen(true)}><Plus className="size-4" /> New rule</Button>} />
+      <PageHeader title="Compliance" subtitle="Policy rules the Compliance Agent monitors, and the alerts it raises." actions={me.canManage ? <Button variant="primary" onClick={() => setOpen(true)}><Plus className="size-4" /> New rule</Button> : undefined} />
       <Tabs value={tab} onChange={setTab} tabs={[{ value: "alerts", label: `Alerts${open_.length ? ` (${open_.length})` : ""}` }, { value: "rules", label: "Policy rules" }]} />
       {tab === "alerts" && (
         alerts.isLoading ? <Loading /> : al.length === 0 ? <Card><Empty icon={<CheckCircle2 className="size-8 text-ok" />} title="No compliance alerts" /></Card> : (
@@ -80,7 +82,7 @@ export default function Compliance() {
                   <Td className="text-muted">{r.rule_type?.replace(/_/g, " ")}</Td>
                   <Td className="text-muted capitalize">{r.frequency}</Td>
                   <Td className="text-muted">{r.deadline_date ? fmtDate(r.deadline_date) : r.deadline_day ? `Day ${r.deadline_day} (+${r.grace_period_days ?? 0}d grace)` : "—"}</Td>
-                  <Td><Toggle checked={r.is_active} onChange={(v) => toggle.mutate({ id: r.id, v })} /></Td>
+                  <Td><Toggle checked={r.is_active} disabled={!me.canManage} onChange={(v) => toggle.mutate({ id: r.id, v })} /></Td>
                 </tr>
               ))}
             </Table>

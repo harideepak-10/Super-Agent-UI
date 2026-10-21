@@ -12,6 +12,10 @@ import { Badge, Button, Card, Empty, ErrorBox, Field, Input, Loading, Modal, Pag
 import { AgentIcon } from "@/components/AgentIcon";
 import { toast } from "@/components/toast";
 
+// "crm" / "qa" read as "Crm Agent" / "Qa Agent" through CSS capitalize
+const TYPE_LABELS: Record<string, string> = { crm: "CRM", qa: "QA", workflow: "Workflow Automation", default: "Default" };
+const typeLabel = (t?: string) => `${TYPE_LABELS[t ?? ""] ?? (t ? t.charAt(0).toUpperCase() + t.slice(1) : "Custom")} agent`;
+
 const RISK_TONE: Record<string, any> = { safe: "ok", low: "ok", medium: "warn", high: "err" };
 
 /* ─────────────── Library ─────────────── */
@@ -126,7 +130,7 @@ export function AgentsList() {
                   <AgentIcon type={a.agent_type} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{a.name}</p>
-                    <p className="text-xs text-muted capitalize">{a.agent_type} agent{a.is_shared && <span className="ml-1.5 rounded bg-accent/10 px-1.5 py-0.5 text-[10px] font-semibold text-accent normal-case">Built · shared</span>}</p>
+                    <p className="text-xs text-muted">{typeLabel(a.agent_type)}{a.is_shared && <span className="ml-1.5 rounded bg-accent/10 px-1.5 py-0.5 text-[10px] font-semibold text-accent normal-case">Built · shared</span>}</p>
                   </div>
                   <StatusBadge status={a.is_active === false ? "paused" : "active"} />
                 </div>

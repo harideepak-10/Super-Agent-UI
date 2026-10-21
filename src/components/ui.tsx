@@ -119,6 +119,7 @@ const STATUS: Record<string, { tone: any; label: string; pulse?: boolean }> = {
   error: { tone: "err", label: "Error" },
   expired: { tone: "neutral", label: "Expired" },
   cancelled: { tone: "neutral", label: "Cancelled" },
+  answered: { tone: "neutral", label: "Answered" },
   flagged: { tone: "warn", label: "Flagged" },
   open: { tone: "warn", label: "Open" },
 };

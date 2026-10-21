@@ -85,7 +85,7 @@ export default function Costs() {
       </div>
 
       <Card className="mt-6">
-        <p className="border-b border-border px-5 py-3 text-sm font-medium">By person (last 30 days)</p>
+        <p className="border-b border-border px-5 py-3 text-sm font-medium">By person (this month)</p>
         <Table head={["Person", "Tasks", "Tokens", "Cost"]}>
           {asList(creators.data?.breakdown).map((c: any) => (
             <tr key={c.user_id}>
