@@ -7,6 +7,13 @@ import { Badge, Button, Card, Empty, Field, Input, Loading, Modal, PageHeader, S
 import { toast } from "@/components/toast";
 
 const SEV: Record<string, any> = { low: "info", medium: "warn", high: "err", critical: "err" };
+const RULE_TYPES: [string, string][] = [["required_document", "Required document"], ["deadline", "Deadline"], ["both", "Document + deadline"]];
+const FREQUENCIES: [string, string][] = [["monthly", "Monthly"], ["quarterly", "Quarterly"], ["annual", "Annual"], ["one_time", "One-time"]];
+/** Enough to save: a name, the documents a document rule needs, the deadline a deadline rule needs. */
+const ruleOk = (f: any) =>
+  !!f.name.trim()
+  && (f.rule_type === "deadline" || String(f.required_document_types).split(",").some((s: string) => s.trim()))
+  && (f.rule_type === "required_document" || (f.frequency === "one_time" ? !!f.deadline_date : f.deadline_day >= 1 && f.deadline_day <= 31));
 
 export default function Compliance() {
   const qc = useQueryClient();
@@ -14,14 +21,25 @@ export default function Compliance() {
   const alerts = useQuery({ queryKey: ["compliance", "alerts"], queryFn: () => get("/compliance/alerts/") });
   const rules = useQuery({ queryKey: ["compliance", "rules"], queryFn: () => get("/compliance/policy-rules/") });
   const [open, setOpen] = useState(false);
-  const blank = { name: "", description: "", rule_type: "document_required", required_document_types: "invoice", frequency: "monthly", deadline_day: 5, grace_period_days: 3, is_active: true };
+  // values match the backend's choices (PolicyRule.RuleType / Frequency) — anything else is a 400
+  const blank = { name: "", description: "", rule_type: "required_document", required_document_types: "invoice", frequency: "monthly", deadline_day: 5, deadline_date: "", grace_period_days: 3, is_active: true };
   const [form, setForm] = useState<any>(blank);
   const inv = () => qc.invalidateQueries({ queryKey: ["compliance"] });
 
   const resolve = useMutation({ mutationFn: (id: string) => post(`/compliance/alerts/${id}/resolve/`), onSuccess: () => { toast.ok("Alert resolved"); inv(); }, onError: (e) => toast.err(errMsg(e)) });
   const toggle = useMutation({ mutationFn: ({ id, v }: { id: string; v: boolean }) => patch(`/compliance/policy-rules/${id}/`, { is_active: v }), onSuccess: inv, onError: (e) => toast.err(errMsg(e)) });
   const create = useMutation({
-    mutationFn: () => post("/compliance/policy-rules/", { ...form, required_document_types: String(form.required_document_types).split(",").map((s: string) => s.trim()).filter(Boolean) }),
+    mutationFn: () => {
+      const docs = form.rule_type !== "deadline";
+      const dated = form.rule_type !== "required_document";
+      const once = form.frequency === "one_time";
+      return post("/compliance/policy-rules/", {
+        ...form,
+        required_document_types: docs ? String(form.required_document_types).split(",").map((s: string) => s.trim()).filter(Boolean) : [],
+        deadline_day: dated && !once ? form.deadline_day : null,
+        deadline_date: dated && once ? form.deadline_date || null : null,
+      });
+    },
     onSuccess: () => { toast.ok("Policy rule created"); setOpen(false); setForm(blank); inv(); },
     onError: (e) => toast.err(errMsg(e)),
   });
@@ -74,19 +92,29 @@ export default function Compliance() {
           <Field label="Name"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Monthly invoice review" /></Field>
           <Field label="Description"><Textarea rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Rule type"><Input value={form.rule_type} onChange={(e) => setForm({ ...form, rule_type: e.target.value })} /></Field>
-            <Field label="Required document types" hint="Comma separated"><Input value={form.required_document_types} onChange={(e) => setForm({ ...form, required_document_types: e.target.value })} /></Field>
-            <Field label="Frequency">
-              <Select className="w-full" value={form.frequency} onChange={(e) => setForm({ ...form, frequency: e.target.value })}>
-                {["daily", "weekly", "monthly", "quarterly", "yearly", "once"].map((f) => <option key={f} value={f}>{f}</option>)}
+            <Field label="Rule type">
+              <Select className="w-full" value={form.rule_type} onChange={(e) => setForm({ ...form, rule_type: e.target.value })}>
+                {RULE_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </Select>
             </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Deadline day"><Input type="number" min={1} max={31} value={form.deadline_day} onChange={(e) => setForm({ ...form, deadline_day: +e.target.value })} /></Field>
-              <Field label="Grace days"><Input type="number" min={0} value={form.grace_period_days} onChange={(e) => setForm({ ...form, grace_period_days: +e.target.value })} /></Field>
-            </div>
+            <Field label="Frequency">
+              <Select className="w-full" value={form.frequency} onChange={(e) => setForm({ ...form, frequency: e.target.value })}>
+                {FREQUENCIES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </Select>
+            </Field>
+            {form.rule_type !== "deadline" && (
+              <Field label="Required document types" hint="Comma separated, e.g. invoice, bank statement"><Input value={form.required_document_types} onChange={(e) => setForm({ ...form, required_document_types: e.target.value })} /></Field>
+            )}
+            {form.rule_type !== "required_document" && (
+              <div className="grid grid-cols-2 gap-3">
+                {form.frequency === "one_time"
+                  ? <Field label="Deadline date"><Input type="date" value={form.deadline_date} onChange={(e) => setForm({ ...form, deadline_date: e.target.value })} /></Field>
+                  : <Field label="Deadline day" hint="Day of the month"><Input type="number" min={1} max={31} value={form.deadline_day} onChange={(e) => setForm({ ...form, deadline_day: +e.target.value })} /></Field>}
+                <Field label="Grace days"><Input type="number" min={0} value={form.grace_period_days} onChange={(e) => setForm({ ...form, grace_period_days: +e.target.value })} /></Field>
+              </div>
+            )}
           </div>
-          <Button variant="primary" className="w-full" disabled={!form.name} loading={create.isPending} onClick={() => create.mutate()}>Create rule</Button>
+          <Button variant="primary" className="w-full" disabled={!ruleOk(form)} loading={create.isPending} onClick={() => create.mutate()}>Create rule</Button>
         </div>
       </Modal>
     </div>
