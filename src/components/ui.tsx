@@ -195,10 +195,10 @@ export const Modal = ({ open, onClose, title, children, wide }: { open: boolean;
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-[10vh] backdrop-blur-sm" onMouseDown={onClose}>
-      <div className={cn("w-full rounded-2xl border border-border bg-surface shadow-2xl", wide ? "max-w-2xl" : "max-w-md")} onMouseDown={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-label={title} className={cn("w-full rounded-2xl border border-border bg-surface shadow-2xl", wide ? "max-w-2xl" : "max-w-md")} onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
           <h2 className="font-semibold">{title}</h2>
-          <Button variant="ghost" size="icon" onClick={onClose}><X className="size-4" /></Button>
+          <Button variant="ghost" size="icon" aria-label="Close" onClick={onClose}><X className="size-4" /></Button>
         </div>
         <div className="p-5">{children}</div>
       </div>

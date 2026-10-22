@@ -171,7 +171,7 @@ export default function Chat() {
   const [params, setParams] = useSearchParams();
   const location = useLocation();
   const [draft, setDraft] = useState<string>(() => (location.state as any)?.prompt ?? "");
-  const [agentId, setAgentId] = useState("");
+  const [agentId, setAgentId] = useState<string>(() => (location.state as any)?.agentId ?? "");
   const [urgent, setUrgent] = useState(false);
   const [notice, setNotice] = useState<{ message: string; files?: any[] } | null>(null);
   const [showList, setShowList] = useState(false);

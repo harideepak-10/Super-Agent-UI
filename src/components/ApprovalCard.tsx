@@ -77,7 +77,9 @@ const lower = (t?: string) => (t ? t.charAt(0).toLowerCase() + t.slice(1) : "");
 
 // Plumbing the agent passes along — never shown to the person approving.
 const HIDDEN = new Set(["customer", "name", "parse_mode", "chat_id", "workspace_id", "task_id", "thread_id", "message_id",
-  "draft_id", "event_id", "calendar_id", "id", "html", "is_html", "format"]);
+  "draft_id", "event_id", "calendar_id", "id", "html", "is_html", "format",
+  // raw ids mean nothing to the approver — the card names the record via preview.item instead
+  "deal_id", "follow_up_id", "customer_id", "report_id", "run_id", "workflow_id", "file_id", "rule_id", "record_id", "approval_id"]);
 const LABELS: Record<string, string> = { notify: "Email the attendees", send_updates: "Email the attendees" };
 const label = (k: string) => LABELS[k] ?? k.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
 const show = (v: unknown): string =>

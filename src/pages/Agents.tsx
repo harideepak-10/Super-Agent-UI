@@ -221,7 +221,8 @@ export function AgentDetail() {
           <p className="text-sm text-muted">{a.description}</p>
         </div>
         <StatusBadge status={a.is_active ? "active" : "paused"} />
-        <Link to="/chat"><Button variant="primary"><MessageSquare className="size-4" /> Give it a task</Button></Link>
+        {/* open a new chat with this agent picked — it used to land on the Default Assistant */}
+        <Link to="/chat" state={{ agentId: a.id }}><Button variant="primary"><MessageSquare className="size-4" /> Give it a task</Button></Link>
       </div>
       <Tabs value={tab} onChange={setTab} tabs={[
         { value: "overview", label: "Overview" }, { value: "tasks", label: "Tasks" },
@@ -375,6 +376,8 @@ function AgentSettings({ id }: { id: string }) {
   const q = useQuery<Agent>({ queryKey: ["agent", id], queryFn: () => get(`/agents/${id}/`) });
   const [form, setForm] = useState<Partial<Agent> | null>(null);
   const a = form ?? q.data;
+  // a typed model name that doesn't exist made every task of this agent fail — pick from real ones
+  const models = asList(useQuery({ queryKey: ["agent-create-form"], queryFn: () => get("/agents/create-form/") }).data?.model?.options);
   const save = useMutation({ mutationFn: () => patch(`/agents/${id}/update/`, form), onSuccess: () => { toast.ok("Saved"); setForm(null); qc.invalidateQueries({ queryKey: ["agent", id] }); qc.invalidateQueries({ queryKey: ["agents"] }); }, onError: (e) => toast.err(errMsg(e)) });
   const sync = useMutation({ mutationFn: () => post(`/agents/templates/${q.data?.template_id}/sync/`), onSuccess: () => { toast.ok("Synced with template"); qc.invalidateQueries({ queryKey: ["agent", id] }); }, onError: (e) => toast.err(errMsg(e)) });
   const remove = useMutation({ mutationFn: () => del(`/agents/${id}/delete/`), onSuccess: () => { toast.ok("Agent deleted"); qc.invalidateQueries({ queryKey: ["agents"] }); nav("/agents"); }, onError: (e) => toast.err(errMsg(e)) });
@@ -394,7 +397,12 @@ function AgentSettings({ id }: { id: string }) {
         <Field label="Description"><Input value={a.description ?? ""} onChange={(e) => set("description", e.target.value)} /></Field>
         <Field label="System prompt"><Textarea rows={8} value={a.system_prompt ?? ""} onChange={(e) => set("system_prompt", e.target.value)} className="font-mono text-xs" /></Field>
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Model"><Input value={a.llm_model ?? ""} onChange={(e) => set("llm_model", e.target.value)} className="font-mono text-xs" /></Field>
+          <Field label="Model">
+            <Select className="w-full" value={a.llm_model ?? ""} onChange={(e) => set("llm_model", e.target.value)}>
+              {a.llm_model && !models.some((o: any) => o.value === a.llm_model) && <option value={a.llm_model}>{a.llm_model}</option>}
+              {models.map((o: any) => <option key={o.value} value={o.value}>{o.label}{o.badge ? ` — ${o.badge}` : ""}</option>)}
+            </Select>
+          </Field>
           <Field label="Max steps"><Input type="number" value={a.max_steps ?? ""} onChange={(e) => set("max_steps", +e.target.value)} /></Field>
           <Field label="Max cost (USD)"><Input type="number" step={0.1} value={a.max_cost_usd ?? ""} onChange={(e) => set("max_cost_usd", +e.target.value)} /></Field>
         </div>

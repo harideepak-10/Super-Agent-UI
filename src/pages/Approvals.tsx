@@ -97,7 +97,7 @@ function Rules() {
       </Card>
       <Modal open={open} onClose={() => setOpen(false)} title="New approval rule">
         <div className="space-y-4">
-          <Field label="Tool name" hint="Exact tool id, e.g. send_email, send_whatsapp, send_slack_message"><Input value={form.tool_name} onChange={(e) => setForm({ ...form, tool_name: e.target.value })} /></Field>
+          <Field label="Tool name" hint="Exact tool id, e.g. send_email, send_whatsapp, send_slack, delete_event"><Input value={form.tool_name} onChange={(e) => setForm({ ...form, tool_name: e.target.value })} /></Field>
           <div className="flex items-center justify-between"><span className="text-sm">Always require approval</span><Toggle checked={form.always_require} onChange={(v) => setForm({ ...form, always_require: v })} /></div>
           <div className="flex items-center justify-between"><span className="text-sm">Always block</span><Toggle checked={form.always_block} onChange={(v) => setForm({ ...form, always_block: v })} /></div>
           <Button variant="primary" className="w-full" loading={create.isPending} disabled={!form.tool_name} onClick={() => create.mutate()}>Create rule</Button>
@@ -125,6 +125,9 @@ export default function Approvals() {
 
 /* Per-agent approval policy: who may approve that agent's actions (Admin only edits). */
 const POLICY_AGENTS = ["email", "communication", "finance", "document", "calendar", "crm", "workflow", "reporting", "compliance", "qa", "research", "custom"];
+// "crm" / "qa" read as "Crm agent" / "Qa agent" through CSS capitalize
+const POLICY_LABELS: Record<string, string> = { crm: "CRM", qa: "QA", workflow: "Workflow Automation" };
+const policyLabel = (t: string) => `${POLICY_LABELS[t] ?? t.charAt(0).toUpperCase() + t.slice(1)} agent`;
 function Policies() {
   const qc = useQueryClient();
   const me = useMe();
@@ -147,9 +150,9 @@ function Policies() {
           return (
             <div key={t} className="flex items-center gap-3 px-5 py-3">
               <AgentIcon type={t} size="sm" />
-              <p className="flex-1 text-sm font-medium capitalize">{t} agent</p>
+              <p className="flex-1 text-sm font-medium">{policyLabel(t)}</p>
               {me.isAdmin ? (
-                <Select value={p?.approver ?? "default"} onChange={(e) => set.mutate({ agent_type: t, approver: e.target.value })} className="h-8 text-xs">
+                <Select aria-label={`Who approves ${policyLabel(t)} actions`} value={p?.approver ?? "default"} onChange={(e) => set.mutate({ agent_type: t, approver: e.target.value })} className="h-8 text-xs">
                   <option value="default">Default (Manager or Admin)</option>
                   <option value="admin_or_manager">Manager or Admin</option>
                   <option value="admin">Admin only</option>
