@@ -226,9 +226,12 @@ export const Code = ({ children, className }: { children: ReactNode; className?:
   <pre className={cn("max-h-80 overflow-auto rounded-lg bg-surface-2 p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap break-words", className)}>{children}</pre>
 );
 
-export const Toggle = ({ checked, onChange, disabled }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) => (
+export const Toggle = ({ checked, onChange, disabled, "aria-label": ariaLabel }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; "aria-label"?: string }) => (
   <button
     type="button"
+    role="switch"
+    aria-checked={checked}
+    aria-label={ariaLabel}
     disabled={disabled}
     onClick={() => onChange(!checked)}
     className={cn("relative h-5 w-9 shrink-0 rounded-full transition-colors cursor-pointer disabled:opacity-50", checked ? "bg-accent" : "bg-border")}

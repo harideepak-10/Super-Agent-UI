@@ -66,6 +66,7 @@ function History() {
 
 function Rules() {
   const qc = useQueryClient();
+  const me = useMe();                          // Admin / Manager change rules; everyone can read them
   const q = useQuery({ queryKey: ["approvals", "rules"], queryFn: () => get("/approvals/rules/") });
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ tool_name: "", always_require: true, always_block: false });
@@ -79,7 +80,7 @@ function Rules() {
     <>
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-muted">Override the default risk zones for specific tools.</p>
-        <Button variant="primary" onClick={() => setOpen(true)}><Plus className="size-4" /> New rule</Button>
+        {me.canManage && <Button variant="primary" onClick={() => setOpen(true)}><Plus className="size-4" /> New rule</Button>}
       </div>
       <Card>
         {q.isLoading ? <Loading /> : rules.length === 0 ? <Empty icon={<ShieldCheck className="size-8" />} title="No custom rules" text="e.g. always require approval for send_whatsapp, or block delete_file entirely." /> : (
@@ -87,9 +88,9 @@ function Rules() {
             {rules.map((r: any) => (
               <tr key={r.id}>
                 <Td className="font-mono text-xs">{r.tool_name}</Td>
-                <Td><Toggle checked={r.always_require} onChange={(v) => update.mutate({ id: r.id, body: { always_require: v } })} /></Td>
-                <Td><Toggle checked={r.always_block} onChange={(v) => update.mutate({ id: r.id, body: { always_block: v } })} /></Td>
-                <Td className="text-right"><Button variant="ghost" size="icon" onClick={() => remove.mutate(r.id)}><Trash2 className="size-4" /></Button></Td>
+                <Td><Toggle checked={r.always_require} disabled={!me.canManage} aria-label={`Always require approval for ${r.tool_name}`} onChange={(v) => update.mutate({ id: r.id, body: v ? { always_require: true, always_block: false } : { always_require: false } })} /></Td>
+                <Td><Toggle checked={r.always_block} disabled={!me.canManage} aria-label={`Always block ${r.tool_name}`} onChange={(v) => update.mutate({ id: r.id, body: v ? { always_block: true, always_require: false } : { always_block: false } })} /></Td>
+                <Td className="text-right">{me.canManage && <Button variant="ghost" size="icon" aria-label={`Delete rule for ${r.tool_name}`} onClick={() => remove.mutate(r.id)}><Trash2 className="size-4" /></Button>}</Td>
               </tr>
             ))}
           </Table>
@@ -98,8 +99,8 @@ function Rules() {
       <Modal open={open} onClose={() => setOpen(false)} title="New approval rule">
         <div className="space-y-4">
           <Field label="Tool name" hint="Exact tool id, e.g. send_email, send_whatsapp, send_slack, delete_event"><Input value={form.tool_name} onChange={(e) => setForm({ ...form, tool_name: e.target.value })} /></Field>
-          <div className="flex items-center justify-between"><span className="text-sm">Always require approval</span><Toggle checked={form.always_require} onChange={(v) => setForm({ ...form, always_require: v })} /></div>
-          <div className="flex items-center justify-between"><span className="text-sm">Always block</span><Toggle checked={form.always_block} onChange={(v) => setForm({ ...form, always_block: v })} /></div>
+          <div className="flex items-center justify-between"><span className="text-sm">Always require approval</span><Toggle checked={form.always_require} onChange={(v) => setForm({ ...form, always_require: v, always_block: v ? false : form.always_block })} /></div>
+          <div className="flex items-center justify-between"><span className="text-sm">Always block</span><Toggle checked={form.always_block} onChange={(v) => setForm({ ...form, always_block: v, always_require: v ? false : form.always_require })} /></div>
           <Button variant="primary" className="w-full" loading={create.isPending} disabled={!form.tool_name} onClick={() => create.mutate()}>Create rule</Button>
         </div>
       </Modal>
