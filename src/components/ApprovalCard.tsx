@@ -84,7 +84,7 @@ const show = (v: unknown): string =>
   typeof v === "boolean" ? (v ? "Yes" : "No")
     : Array.isArray(v) ? v.map(show).join(", ") : v && typeof v === "object" ? Object.values(v as object).map(show).join(", ") : String(v ?? "");
 
-type Preview = { channel?: string | null; to?: string | null; subject?: string | null; cc?: any; bcc?: any; body?: string | null; meeting?: string | null };
+type Preview = { channel?: string | null; to?: string | null; subject?: string | null; cc?: any; bcc?: any; body?: string | null; meeting?: string | null; item?: string | null; item_label?: string | null };
 
 /** What the approver checks, in plain words: who it goes to (the person, not a chat ID),
  *  subject and message — or the action's details as labelled rows. Never raw JSON. */
@@ -117,10 +117,11 @@ export function ActionPreview({ input, preview }: { input: any; preview?: Previe
   }
   if (obj) {
     const rows = Object.entries(obj).filter(([k, v]) => !HIDDEN.has(k) && v !== null && v !== "" && !(Array.isArray(v) && !v.length));
-    if (!rows.length && !preview?.meeting) return null;
+    const item = preview?.item ?? preview?.meeting;
+    if (!rows.length && !item) return null;
     return (
       <div className="space-y-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm">
-        {preview?.meeting && <p><span className="text-muted">Meeting:</span> <span className="font-medium">{preview.meeting}</span></p>}
+        {item && <p><span className="text-muted">{preview?.item_label ?? "Meeting"}:</span> <span className="font-medium">{item}</span></p>}
         {rows.map(([k, v]) => <p key={k}><span className="text-muted">{label(k)}:</span> {show(v)}</p>)}
       </div>
     );
