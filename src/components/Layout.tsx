@@ -5,7 +5,7 @@ import {
   Home, Inbox, ListTodo, MessageSquare, Rocket, Users, Wallet, ScrollText, Scale, ListChecks,
   Settings, Search, Bell, Moon, Sun, Menu, LogOut, X, Plug, Plus, Workflow, BarChart3, Handshake,
 } from "lucide-react";
-import { get, post } from "@/api/client";
+import { get, patch, post } from "@/api/client";
 import { useAuth } from "@/store/auth";
 import { useUI } from "@/store/ui";
 import { useLiveSocket } from "@/lib/useLiveSocket";
@@ -156,7 +156,8 @@ function Notifications() {
   const ref = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
   const nav = useNavigate();
-  const count = useQuery({ queryKey: ["notifications", "count"], queryFn: () => get("/notifications/count/") });
+  // customer replies arrive on their own (Telegram / WhatsApp webhooks) — poll as a fallback to the live socket
+  const count = useQuery({ queryKey: ["notifications", "count"], queryFn: () => get("/notifications/count/"), refetchInterval: 60000 });
   const list = useQuery({ queryKey: ["notifications"], queryFn: () => get("/notifications/"), enabled: open });
   const unread = count.data?.unread_count ?? count.data?.count ?? count.data?.unread ?? 0;
 
@@ -183,8 +184,10 @@ function Notifications() {
 
   const go = (n: Notification) => {
     setOpen(false);
+    if (!n.is_read) patch(`/notifications/${n.id}/`, {}).then(() => qc.invalidateQueries({ queryKey: ["notifications"] })).catch(() => {});
     if (n.resource_type === "task" && n.resource_id) nav(`/chat?task=${n.resource_id}`);
     else if (n.resource_type === "approval" && n.resource_id) nav(`/inbox/${n.resource_id}`);
+    else if (n.resource_type === "customer" && n.resource_id) nav(`/customers/${n.resource_id}`);
   };
 
   return (

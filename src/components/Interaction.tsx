@@ -12,8 +12,9 @@ const LABEL: Record<string, string> = {
   email_sent: "Email sent", email_received: "Email received", email_read: "Email read", email_classified: "Email classified",
   draft_created: "Draft created", thread_summarized: "Thread summarized", action_items_extracted: "Action items",
   note: "Note", telegram_sent: "Telegram sent", whatsapp_sent: "WhatsApp sent",
+  telegram_received: "Telegram received", whatsapp_received: "WhatsApp received",
 };
-const SOURCE: Record<string, string> = { agent: "by an agent", gmail_sync: "from your Gmail" };
+const SOURCE: Record<string, string> = { agent: "by an agent", gmail_sync: "from your Gmail", customer: "from the customer" };
 const LOGO: Record<string, [string, string]> = { telegram: ["/images/telegram_logo.webp", "bg-[#229ED9]"], whatsapp: ["/images/whatsapp_logo.webp", "bg-[#25D366]"] };
 
 export function InteractionRow({ i }: { i: InteractionLike }) {
@@ -21,7 +22,7 @@ export function InteractionRow({ i }: { i: InteractionLike }) {
   const channel = i.channel || i.metadata?.channel || (type.startsWith("telegram") ? "telegram" : type.startsWith("whatsapp") ? "whatsapp" : type.startsWith("email") || type === "draft_created" ? "email" : "");
   const source = i.source || i.metadata?.source || "";
   const at = i.at || i.metadata?.at || i.created_at;
-  const incoming = type === "email_received";
+  const incoming = /_received$/.test(type);
   const outgoing = /_sent$/.test(type);
   const label = LABEL[type] ?? i.label ?? type.replace(/_/g, " ");
 
