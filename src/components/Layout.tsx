@@ -115,7 +115,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             <p className="truncate text-sm font-semibold">{user?.name || "You"}</p>
             <p className="truncate text-[11px] text-muted">{[me.roleLabel, me.header?.plan_label].filter(Boolean).join(" · ") || user?.email}</p>
           </div>
-          <button onClick={logout} title="Log out" className="text-muted hover:text-err cursor-pointer"><LogOut className="size-4" /></button>
+          <button onClick={logout} title="Log out" aria-label="Log out" className="text-muted hover:text-err cursor-pointer"><LogOut className="size-4" /></button>
         </div>
       </div>
     </div>
@@ -189,7 +189,7 @@ function Notifications() {
 
   return (
     <div className="relative" ref={ref}>
-      <button onClick={() => setOpen(!open)} className="relative grid size-10 place-items-center rounded-xl text-muted hover:bg-surface-2 hover:text-fg cursor-pointer">
+      <button onClick={() => setOpen(!open)} aria-label="Notifications" aria-expanded={open} className="relative grid size-10 place-items-center rounded-xl text-muted hover:bg-surface-2 hover:text-fg cursor-pointer">
         <Bell className="size-[18px]" />
         {unread > 0 && <span className="absolute top-1.5 right-1.5 grid min-w-4 place-items-center rounded-full bg-err px-1 text-[10px] font-semibold text-white">{unread > 9 ? "9+" : unread}</span>}
       </button>
@@ -259,7 +259,7 @@ export function Layout() {
         <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setSidebar(false)}>
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
           <aside className="relative h-full w-72 border-r border-border bg-surface shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <button className="absolute top-5 right-4 text-muted cursor-pointer" onClick={() => setSidebar(false)}><X className="size-5" /></button>
+            <button className="absolute top-5 right-4 text-muted cursor-pointer" aria-label="Close menu" onClick={() => setSidebar(false)}><X className="size-5" /></button>
             <Sidebar onNavigate={() => setSidebar(false)} />
           </aside>
         </div>
@@ -277,7 +277,7 @@ export function Layout() {
             <kbd className="hidden rounded-md border border-border bg-surface px-1.5 font-mono text-[10px] sm:inline">Ctrl K</kbd>
           </button>
           <div className="flex items-center gap-1 sm:ml-auto">
-            <button onClick={toggleTheme} className="grid size-10 place-items-center rounded-xl text-muted hover:bg-surface-2 hover:text-fg cursor-pointer" title="Toggle theme">
+            <button onClick={toggleTheme} aria-label="Toggle theme" className="grid size-10 place-items-center rounded-xl text-muted hover:bg-surface-2 hover:text-fg cursor-pointer" title="Toggle theme">
               {theme === "dark" ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}
             </button>
             <Notifications />

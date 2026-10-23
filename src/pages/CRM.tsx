@@ -182,7 +182,8 @@ function DealModal({ deal, onClose, canDelete }: { deal: Deal | "new" | null; on
         <Field label="Notes"><Textarea rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
         <div className="flex gap-2">
           <Button variant="primary" className="flex-1" disabled={!form.title || (isNew && !form.customer_email)} loading={save.isPending} onClick={() => save.mutate()}>{isNew ? "Create deal" : "Save changes"}</Button>
-          {!isNew && canDelete && <Button variant="danger" loading={remove.isPending} onClick={() => remove.mutate()}><Trash2 className="size-4" /></Button>}
+          {!isNew && canDelete && <Button variant="danger" aria-label="Delete deal" title="Delete deal" loading={remove.isPending}
+            onClick={() => { if (confirm(`Delete the deal “${form.title}”? This can't be undone.`)) remove.mutate(); }}><Trash2 className="size-4" /></Button>}
         </div>
       </div>
     </Modal>
@@ -230,7 +231,9 @@ function FollowUps({ onCustomer }: { onCustomer: (e: string) => void }) {
             {f.overdue && <Badge tone="err">Overdue</Badge>}
             {f.status !== "open" && <Badge tone={f.status === "done" ? "ok" : "neutral"}>{f.status}</Badge>}
             {f.status === "open" && <Button size="sm" onClick={() => setDone(f)}><Check className="size-3.5" /> Done</Button>}
-            {me.canManage && <Button variant="ghost" size="icon" onClick={() => remove.mutate(f.id)}><Trash2 className="size-4" /></Button>}
+            {/* live test: one tap on this unlabeled icon deleted the follow-up with no question */}
+            {me.canManage && <Button variant="ghost" size="icon" aria-label={`Delete follow-up for ${f.customer_name || f.customer_email}`} title="Delete follow-up"
+              onClick={() => { if (confirm(`Delete this follow-up for ${f.customer_name || f.customer_email}?`)) remove.mutate(f.id); }}><Trash2 className="size-4" /></Button>}
           </div>
         ))}
       </Card>

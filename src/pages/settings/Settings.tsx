@@ -279,7 +279,8 @@ export function TeamSettings() {
                     ) : <span className="text-xs text-muted">{m.manager_email ?? "—"}</span>}
                   </Td>
                   <Td className="text-muted">{timeAgo(m.joined_at)}</Td>
-                  <Td className="text-right">{canRemove(m) && <Button variant="ghost" size="icon" onClick={() => remove.mutate(m.id)}><Trash2 className="size-4" /></Button>}</Td>
+                  <Td className="text-right">{canRemove(m) && <Button variant="ghost" size="icon" aria-label={`Remove ${m.name || m.email} from the team`} title="Remove from team"
+                    onClick={() => { if (confirm(`Remove ${m.name || m.email} from the team?`)) remove.mutate(m.id); }}><Trash2 className="size-4" /></Button>}</Td>
                 </tr>
               ))}
             </Table>
@@ -357,7 +358,7 @@ export function NotificationSettings() {
       {NOTIF.map(([k, label, desc]) => (
         <div key={k} className="flex items-center gap-4 px-5 py-4">
           <div className="flex-1"><p className="text-sm font-medium">{label}</p><p className="text-xs text-muted">{desc}</p></div>
-          <Toggle checked={!!q.data?.[k]} onChange={(v) => save.mutate({ [k]: v })} />
+          <Toggle aria-label={label} checked={!!q.data?.[k]} onChange={(v) => save.mutate({ [k]: v })} />
         </div>
       ))}
     </Card>

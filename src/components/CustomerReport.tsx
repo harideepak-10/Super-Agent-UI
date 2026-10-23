@@ -57,7 +57,7 @@ export function CustomerReport({ open, onClose, customer, name }: { open: boolea
           </>}
           {customer && (
             <label className="flex h-10 items-center gap-2 text-sm" title="Look through Gmail for attachments sent to / received from this customer">
-              <Toggle checked={files} onChange={setFiles} /> <Paperclip className="size-3.5 text-muted" /> Files exchanged
+              <Toggle aria-label="Include files exchanged" checked={files} onChange={setFiles} /> <Paperclip className="size-3.5 text-muted" /> Files exchanged
             </label>
           )}
           <div className="ml-auto flex gap-2">
@@ -136,7 +136,7 @@ function Portfolio({ d }: { d: any }) {
         <Stat label="Outstanding" value={money(t.outstanding_total ?? 0, cur)} tone={t.outstanding_total ? "text-err" : undefined} />
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <List title="Top customers" rows={asList(d.top_customers).map((c: any) => [c.customer, money(c.amount, cur)])} />
+        <List title={asList(d.top_customers)[0]?.source === "won deals" ? "Top customers (deals won)" : "Top customers"} rows={asList(d.top_customers).map((c: any) => [c.customer, money(c.amount, cur)])} />
         <List title="At risk" rows={asList(d.at_risk).map((c: any) => [c.customer, asList(c.reasons).slice(0, 2).join(", ")])} />
         <List title="Unpaid invoices" rows={asList(d.overdue_payments).map((c: any) => [c.customer, money(c.amount, cur)])} />
         <List title="Hot leads" rows={asList(d.hot_leads).map((c: any) => [c.customer, `score ${c.score}`])} />

@@ -57,9 +57,9 @@ function StepEditor({ steps, setSteps, tools }: { steps: Step[]; setSteps: (s: S
               <span className="grid size-6 shrink-0 place-items-center rounded-full bg-accent/15 text-xs font-semibold text-accent">{i + 1}</span>
               <Input value={s.label} onChange={(e) => update(i, { label: e.target.value })} placeholder="Step label" className="flex-1" />
               <div className="flex">
-                <Button variant="ghost" size="icon" disabled={i === 0} onClick={() => move(i, -1)}><ArrowUp className="size-4" /></Button>
-                <Button variant="ghost" size="icon" disabled={i === steps.length - 1} onClick={() => move(i, 1)}><ArrowDown className="size-4" /></Button>
-                <Button variant="ghost" size="icon" onClick={() => setSteps(steps.filter((_, j) => j !== i))}><X className="size-4" /></Button>
+                <Button variant="ghost" size="icon" aria-label="Move step up" disabled={i === 0} onClick={() => move(i, -1)}><ArrowUp className="size-4" /></Button>
+                <Button variant="ghost" size="icon" aria-label="Move step down" disabled={i === steps.length - 1} onClick={() => move(i, 1)}><ArrowDown className="size-4" /></Button>
+                <Button variant="ghost" size="icon" aria-label="Remove step" onClick={() => setSteps(steps.filter((_, j) => j !== i))}><X className="size-4" /></Button>
               </div>
             </div>
             <div className="mt-3 grid gap-3 pl-9 sm:grid-cols-2">
@@ -162,7 +162,7 @@ function ScheduleCard({ wf, set }: { wf: any; set: (p: any) => void }) {
       <div className="flex items-center justify-between gap-3">
         <div><p className="flex items-center gap-1.5 font-medium"><Clock className="size-4 text-accent" /> Schedule</p>
           <p className="text-xs text-muted">{on ? `Runs ${describe(wf)}` : "Runs only when you press Run"}</p></div>
-        <Toggle checked={on} onChange={(v) => set(v ? { schedule_enabled: true, schedule_time: hhmm(wf.schedule_time) || "09:00", schedule_frequency: freq } : { schedule_enabled: false })} />
+        <Toggle aria-label="Run on a schedule" checked={on} onChange={(v) => set(v ? { schedule_enabled: true, schedule_time: hhmm(wf.schedule_time) || "09:00", schedule_frequency: freq } : { schedule_enabled: false })} />
       </div>
       {on && (
         <div className="grid gap-4 sm:grid-cols-3">
@@ -218,7 +218,7 @@ export function WorkflowEditor() {
       <Link to="/workflows" className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-fg"><ArrowLeft className="size-4" /> Workflows</Link>
       <PageHeader title={isNew ? "New workflow" : wf.name || "Workflow"}
         actions={<>
-          {!isNew && <Button variant="ghost" size="icon" loading={remove.isPending} onClick={() => { if (confirm(`Delete the workflow “${wf.name || "untitled"}”?`)) remove.mutate(); }} title="Delete"><Trash2 className="size-4" /></Button>}
+          {!isNew && <Button variant="ghost" size="icon" loading={remove.isPending} onClick={() => { if (confirm(`Delete the workflow “${wf.name || "untitled"}”?`)) remove.mutate(); }} title="Delete" aria-label="Delete workflow"><Trash2 className="size-4" /></Button>}
           <Button loading={save.isPending} disabled={!isNew && !draft} onClick={() => save.mutate()}>Save</Button>
           {!isNew && <Button variant="primary" loading={run.isPending} disabled={!!draft} onClick={() => run.mutate()}><Play className="size-4" /> Run</Button>}
         </>} />
@@ -228,7 +228,7 @@ export function WorkflowEditor() {
           <Card className="space-y-4 p-5">
             <Field label="Name"><Input value={wf.name} onChange={(e) => set({ name: e.target.value })} placeholder="Daily inbox triage" /></Field>
             <Field label="Description"><Input value={wf.description ?? ""} onChange={(e) => set({ description: e.target.value })} /></Field>
-            <div className="flex items-center justify-between"><span className="text-sm">Active</span><Toggle checked={wf.is_active !== false} onChange={(v) => set({ is_active: v })} /></div>
+            <div className="flex items-center justify-between"><span className="text-sm">Active</span><Toggle aria-label="Workflow active" checked={wf.is_active !== false} onChange={(v) => set({ is_active: v })} /></div>
           </Card>
           <ScheduleCard wf={wf} set={set} />
           <StepEditor steps={asList(wf.steps)} setSteps={(steps) => set({ steps })} tools={toolsQ.data?.tools?.available ?? []} />

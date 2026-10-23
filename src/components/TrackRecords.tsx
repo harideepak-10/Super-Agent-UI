@@ -181,7 +181,7 @@ export function RecordUploader({ selected = [], compact, onUploaded, workbookNam
             </div>
           ))}
           <div className="flex flex-wrap items-center gap-3 px-4 py-3">
-            <label className="flex items-center gap-2 text-xs text-muted"><Toggle checked={useAi} onChange={setUseAi} /> Use AI to detect record types <span className="hidden sm:inline">· only column names, types and 3 masked sample rows are sent</span></label>
+            <label className="flex items-center gap-2 text-xs text-muted"><Toggle aria-label="Use AI to detect record types" checked={useAi} onChange={setUseAi} /> Use AI to detect record types <span className="hidden sm:inline">· only column names, types and 3 masked sample rows are sent</span></label>
             <Button variant="primary" className="ml-auto" disabled={!tables.length} loading={upload.isPending} onClick={() => upload.mutate()}>
               <UploadCloud className="size-4" /> Upload & import {tables.length} table{tables.length === 1 ? "" : "s"}
             </Button>

@@ -82,7 +82,7 @@ export default function Compliance() {
                   <Td className="text-muted">{r.rule_type?.replace(/_/g, " ")}</Td>
                   <Td className="text-muted capitalize">{r.frequency}</Td>
                   <Td className="text-muted">{r.deadline_date ? fmtDate(r.deadline_date) : r.deadline_day ? `Day ${r.deadline_day} (+${r.grace_period_days ?? 0}d grace)` : "—"}</Td>
-                  <Td><Toggle checked={r.is_active} disabled={!me.canManage} onChange={(v) => toggle.mutate({ id: r.id, v })} /></Td>
+                  <Td><Toggle aria-label={`Rule ${r.name} active`} checked={r.is_active} disabled={!me.canManage} onChange={(v) => toggle.mutate({ id: r.id, v })} /></Td>
                 </tr>
               ))}
             </Table>

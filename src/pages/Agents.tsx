@@ -406,7 +406,7 @@ function AgentSettings({ id }: { id: string }) {
           <Field label="Max steps"><Input type="number" value={a.max_steps ?? ""} onChange={(e) => set("max_steps", +e.target.value)} /></Field>
           <Field label="Max cost (USD)"><Input type="number" step={0.1} value={a.max_cost_usd ?? ""} onChange={(e) => set("max_cost_usd", +e.target.value)} /></Field>
         </div>
-        <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5"><span className="text-sm">Active</span><Toggle checked={a.is_active !== false} onChange={(v) => set("is_active", v)} /></div>
+        <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5"><span className="text-sm">Active</span><Toggle aria-label="Agent active" checked={a.is_active !== false} onChange={(v) => set("is_active", v)} /></div>
         <div className="flex gap-2">
           <Button variant="primary" disabled={!form} loading={save.isPending} onClick={() => save.mutate()}>Save changes</Button>
           {form && <Button variant="ghost" onClick={() => setForm(null)}>Discard</Button>}

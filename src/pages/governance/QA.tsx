@@ -19,7 +19,7 @@ export default function QA() {
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
       <PageHeader title="Quality assurance" subtitle="The QA Agent reviews agent output and flags anything that looks wrong."
-        actions={<Select value={status} onChange={(e) => setStatus(e.target.value)}><option value="">All reports</option><option value="flagged">Flagged</option><option value="passed">Passed</option></Select>} />
+        actions={<Select value={status} onChange={(e) => setStatus(e.target.value)}><option value="">All reports</option><option value="flagged">Flagged</option><option value="pass">Passed</option></Select>} />
       <Card className="divide-y divide-border">
         {q.isLoading && <Loading />}
         {!q.isLoading && reports.length === 0 && <Empty icon={<ListChecks className="size-8" />} title="No QA reports" />}

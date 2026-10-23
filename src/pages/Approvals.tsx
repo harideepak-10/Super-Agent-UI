@@ -99,8 +99,8 @@ function Rules() {
       <Modal open={open} onClose={() => setOpen(false)} title="New approval rule">
         <div className="space-y-4">
           <Field label="Tool name" hint="Exact tool id, e.g. send_email, send_whatsapp, send_slack, delete_event"><Input value={form.tool_name} onChange={(e) => setForm({ ...form, tool_name: e.target.value })} /></Field>
-          <div className="flex items-center justify-between"><span className="text-sm">Always require approval</span><Toggle checked={form.always_require} onChange={(v) => setForm({ ...form, always_require: v, always_block: v ? false : form.always_block })} /></div>
-          <div className="flex items-center justify-between"><span className="text-sm">Always block</span><Toggle checked={form.always_block} onChange={(v) => setForm({ ...form, always_block: v, always_require: v ? false : form.always_require })} /></div>
+          <div className="flex items-center justify-between"><span className="text-sm">Always require approval</span><Toggle aria-label="Always require approval" checked={form.always_require} onChange={(v) => setForm({ ...form, always_require: v, always_block: v ? false : form.always_block })} /></div>
+          <div className="flex items-center justify-between"><span className="text-sm">Always block</span><Toggle aria-label="Always block" checked={form.always_block} onChange={(v) => setForm({ ...form, always_block: v, always_require: v ? false : form.always_require })} /></div>
           <Button variant="primary" className="w-full" loading={create.isPending} disabled={!form.tool_name} onClick={() => create.mutate()}>Create rule</Button>
         </div>
       </Modal>
