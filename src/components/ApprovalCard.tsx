@@ -79,6 +79,7 @@ const lower = (t?: string) => (t ? t.charAt(0).toLowerCase() + t.slice(1) : "");
 const HIDDEN = new Set(["customer", "name", "parse_mode", "chat_id", "workspace_id", "task_id", "thread_id", "message_id",
   "draft_id", "event_id", "calendar_id", "id", "html", "is_html", "format",
   // raw ids mean nothing to the approver — the card names the record via preview.item instead
+  "original_text", "language_override", "preferences_checked",
   "deal_id", "follow_up_id", "customer_id", "report_id", "run_id", "workflow_id", "file_id", "rule_id", "record_id", "approval_id"]);
 const LABELS: Record<string, string> = { notify: "Email the attendees", send_updates: "Email the attendees" };
 const label = (k: string) => LABELS[k] ?? k.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
@@ -113,6 +114,12 @@ export function ActionPreview({ input, preview }: { input: any; preview?: Previe
           </div>
         )}
         <p className="px-3 py-2.5 text-sm whitespace-pre-wrap">{body}</p>
+        {typeof obj.original_text === "string" && obj.original_text.trim() && obj.original_text.trim() !== body.trim() && (
+          <div className="border-t border-border bg-surface-2/50 px-3 py-2">
+            <p className="text-[11px] font-medium text-muted">Your words (translated above for the customer — not sent)</p>
+            <p className="mt-0.5 text-sm whitespace-pre-wrap text-muted">{obj.original_text}</p>
+          </div>
+        )}
         {files && show(files) && <p className="border-t border-border px-3 py-2 text-xs text-muted">Attachments: {show(files)}</p>}
       </div>
     );

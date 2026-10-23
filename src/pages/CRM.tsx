@@ -226,6 +226,7 @@ function FollowUps({ onCustomer }: { onCustomer: (e: string) => void }) {
             <div className="min-w-0 flex-1">
               <button onClick={() => onCustomer(f.customer_email)} className="text-sm font-semibold hover:text-accent cursor-pointer">{f.customer_name || f.customer_email}</button>
               <p className="text-sm text-muted">{f.note}</p>
+              {(f as any).source === "customer_message" && f.status === "open" && <p className="mt-0.5 text-xs text-muted">Customer is waiting for a reply — closes by itself when you write back</p>}
               {f.outcome && <p className="mt-0.5 text-xs text-ok">Outcome: {f.outcome}</p>}
             </div>
             {f.overdue && <Badge tone="err">Overdue</Badge>}

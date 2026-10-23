@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Plus, Search, Users } from "lucide-react";
 import { del, get, patch, post } from "@/api/client";
 import { asList, errMsg, timeAgo } from "@/lib/utils";
-import { Badge, Button, Card, Empty, Field, Input, Loading, Modal, PageHeader, Table, Td, Textarea } from "@/components/ui";
+import { Badge, Button, Card, Empty, Field, Input, Loading, Modal, PageHeader, Select, Table, Td, Textarea } from "@/components/ui";
 import { Avatar } from "@/components/Layout";
 import { useMe } from "@/lib/useMe";
 import { toast } from "@/components/toast";
@@ -51,11 +51,31 @@ export function CustomersList() {
   );
 }
 
-const FIELDS: [string, string, "input" | "email" | "textarea"][] = [
-  ["name", "Name", "input"], ["email", "Email", "email"], ["company", "Company", "input"], ["role", "Role", "input"], ["preferred_language", "Preferred language", "input"],
-  ["communication_style", "Communication style", "input"], ["urgency_preference", "Urgency preference", "input"],
+const FIELDS: [string, string, "input" | "email" | "textarea" | "select"][] = [
+  ["name", "Name", "input"], ["email", "Email", "email"], ["company", "Company", "input"], ["role", "Role", "input"], ["preferred_language", "Preferred language", "select"],
+  ["communication_style", "Communication style", "select"], ["urgency_preference", "Urgency preference", "select"],
   ["custom_instructions", "Custom instructions for agents", "textarea"], ["agent_notes", "Agent notes", "textarea"],
 ];
+
+// Same codes as the backend (apps/crm/preferences.py LANGUAGES / STYLES / URGENCY)
+const LANGUAGES: [string, string][] = [
+  ["en", "English"], ["ta", "Tamil"], ["hi", "Hindi"], ["te", "Telugu"], ["ml", "Malayalam"], ["kn", "Kannada"], ["bn", "Bengali"],
+  ["mr", "Marathi"], ["gu", "Gujarati"], ["pa", "Punjabi"], ["ur", "Urdu"], ["si", "Sinhala"], ["ar", "Arabic"], ["fr", "French"],
+  ["es", "Spanish"], ["de", "German"], ["pt", "Portuguese"], ["it", "Italian"], ["nl", "Dutch"], ["tr", "Turkish"], ["ru", "Russian"],
+  ["zh", "Chinese"], ["ja", "Japanese"], ["ko", "Korean"], ["th", "Thai"], ["id", "Indonesian"], ["ms", "Malay"],
+];
+const CHOICES: Record<string, [string, string][]> = {
+  preferred_language: LANGUAGES,
+  communication_style: [["formal", "Formal"], ["casual", "Casual & friendly"], ["technical", "Technical"], ["brief", "Brief & direct"]],
+  urgency_preference: [["same_day", "Same day"], ["24h", "Within 24 hours"], ["48h", "Within 48 hours"], ["low", "Low priority"]],
+};
+const HINTS: Record<string, string> = {
+  preferred_language: "Agents write every email / Telegram / WhatsApp message to this customer in this language.",
+  communication_style: "The tone agents use with this customer.",
+  urgency_preference: "When this customer messages you, a “Reply to …” follow-up is due within this time.",
+  custom_instructions: "Rules agents must follow when writing to this customer.",
+  agent_notes: "What agents learned about this customer. Agents add to it; you can edit it.",
+};
 
 export function CustomerDetail() {
   const { id } = useParams();
@@ -88,9 +108,14 @@ export function CustomerDetail() {
       <div className="grid gap-6 lg:grid-cols-5">
         <Card className="space-y-4 p-5 lg:col-span-2">
           {FIELDS.map(([k, label, type]) => (
-            <Field key={k} label={label}>
+            <Field key={k} label={label} hint={HINTS[k]}>
               {type === "textarea"
                 ? <Textarea rows={3} value={c[k] ?? ""} onChange={(e) => setForm({ ...(form ?? {}), [k]: e.target.value })} />
+                : type === "select"
+                ? <Select className="w-full" aria-label={label} value={c[k] ?? ""} onChange={(e) => setForm({ ...(form ?? {}), [k]: e.target.value })}>
+                    {c[k] && !CHOICES[k].some(([v]) => v === c[k]) && <option value={c[k]}>{c[k]}</option>}
+                    {CHOICES[k].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </Select>
                 : <Input type={type === "email" ? "email" : "text"} value={c[k] ?? ""} onChange={(e) => setForm({ ...(form ?? {}), [k]: e.target.value })} />}
               {k === "email" && emailChanged && (
                 <p className={`mt-1 text-xs ${emailOk ? "text-muted" : "text-err"}`}>
