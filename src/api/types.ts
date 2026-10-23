@@ -3,9 +3,10 @@ export type TaskStatus = "queued" | "running" | "waiting_approval" | "needs_inpu
 /** A choice offered when a task stops with status "needs_input" (topics in a file, or how to show a report). */
 export type TaskOption = {
   key: string; label: string; detail?: string;
-  /** topics / format (file flows) · hire / handoff (Default Assistant) · recipient (email) · crm_customer_exists */
-  group?: "topics" | "format" | "hire" | "handoff" | "recipient" | "crm_customer_exists" | string;
+  /** topics / format (file flows) · hire / handoff (Default Assistant) · recipient (email) · crm_customer_exists · choice (a menu / yes-no in the agent's text) */
+  group?: "topics" | "format" | "hire" | "handoff" | "recipient" | "crm_customer_exists" | "choice" | string;
   input?: "email"; email?: string; name?: string; agent_id?: string; agent_name?: string; prompt?: string; reply?: string;
+  value?: string;
 };
 
 /** A file uploaded with a task / chat message. */

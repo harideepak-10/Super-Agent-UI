@@ -153,8 +153,9 @@ export function SentFiles({ files }: { files?: TaskFile[] }) {
 
 /* ─────────────── needs_input: the agent's question + choices ─────────────── */
 /** Questions answered with one tap (as opposed to the file flows' multi-select topics / format). */
-const SINGLE_GROUPS = new Set(["hire", "handoff", "crm_customer_exists", "recipient"]);
-const PRIMARY_KEYS = new Set(["hire_yes", "handoff_yes", "crm_send_message"]);
+// "choice" = a menu or yes / no the agent asked in its own text (one pick, its prompt is sent as the reply)
+const SINGLE_GROUPS = new Set(["hire", "handoff", "crm_customer_exists", "recipient", "choice"]);
+const PRIMARY_KEYS = new Set(["hire_yes", "handoff_yes", "crm_send_message", "yes"]);
 const EMAIL_RE = /^[^@\s<>,;]+@[^@\s<>,;]+\.[A-Za-z]{2,}$/;
 
 export type Answer = { keys?: string[]; text?: string };
