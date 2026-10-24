@@ -79,7 +79,7 @@ const lower = (t?: string) => (t ? t.charAt(0).toLowerCase() + t.slice(1) : "");
 const HIDDEN = new Set(["customer", "name", "parse_mode", "chat_id", "workspace_id", "task_id", "thread_id", "message_id",
   "draft_id", "event_id", "calendar_id", "id", "html", "is_html", "format",
   // raw ids mean nothing to the approver — the card names the record via preview.item instead
-  "original_text", "language_override", "preferences_checked",
+  "original_text", "language_override", "preferences_checked", "file_path",
   "deal_id", "follow_up_id", "customer_id", "report_id", "run_id", "workflow_id", "file_id", "rule_id", "record_id", "approval_id"]);
 const LABELS: Record<string, string> = { notify: "Email the attendees", send_updates: "Email the attendees" };
 const label = (k: string) => LABELS[k] ?? k.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
@@ -103,7 +103,7 @@ export function ActionPreview({ input, preview }: { input: any; preview?: Previe
     if (preview?.cc ?? obj.cc) rows.push(["Cc", show(preview?.cc ?? obj.cc)]);
     if (preview?.bcc ?? obj.bcc) rows.push(["Bcc", show(preview?.bcc ?? obj.bcc)]);
     const subject = preview?.subject ?? obj.subject ?? obj.title;
-    const files = obj.attachments ?? obj.files;
+    const files = obj.attachments ?? obj.files ?? (obj.file_path ? String(obj.file_path).split(/[\\/]/).pop()?.replace(/^[0-9a-f-]{36}_/, "") : undefined);
     return (
       <div className="overflow-hidden rounded-lg border border-border bg-surface">
         {(rows.length > 0 || subject || preview?.channel) && (
