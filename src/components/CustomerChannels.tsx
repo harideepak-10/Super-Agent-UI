@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, Copy, ExternalLink, Phone, Send } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { CheckCircle2, Copy, ExternalLink, Phone, Send, Unlink } from "lucide-react";
 import { get, post } from "@/api/client";
 import { asList, cn, errMsg } from "@/lib/utils";
 import { Button } from "./ui";
@@ -52,12 +52,43 @@ export function useCustomerWhatsApp(email?: string | null, known?: string | null
   return (d?.whatsapp_number ?? d?.profile?.whatsapp_number) || null;
 }
 
+/** Is the customer's Telegram linked? (from customer memory — null while unknown) */
+function useCustomerTelegram(email?: string | null) {
+  const q = useQuery({
+    queryKey: ["memory", "lookup", email],
+    queryFn: () => get("/memory/lookup/", { email }),
+    enabled: !!email, retry: false, staleTime: 60_000,
+  });
+  const d: any = q.data;
+  if (!d) return null;
+  return !!(d.telegram_chat_id ?? d.profile?.telegram_chat_id);
+}
+
 export function CustomerChannels({ email, whatsapp, compact }: { email: string; whatsapp?: string | null; compact?: boolean }) {
+  const qc = useQueryClient();
   const wa = useCustomerWhatsApp(email, whatsapp);
+  const tg = useCustomerTelegram(email);
   const recordPhone = useCustomerPhone(wa ? null : email);
   const phone = wa ?? recordPhone;
   const [res, setRes] = useState<Partial<Record<Channel, Result>>>({});
   const [busy, setBusy] = useState<Channel | null>(null);
+  const [dropped, setDropped] = useState<Partial<Record<Channel, boolean>>>({});
+
+  const disconnect = async (ch: Channel) => {
+    if (!confirm(`Disconnect ${LABEL[ch]}? Agents won't be able to message this customer there until they connect again with a new invite link.`)) return;
+    setBusy(ch);
+    try {
+      const d: any = await post("/integrations/channels/disconnect/", { email, channel: ch });
+      toast.ok(d.detail || `${LABEL[ch]} disconnected`);
+      setDropped((x) => ({ ...x, [ch]: true }));
+      setRes((r) => ({ ...r, [ch]: undefined }));
+      qc.invalidateQueries({ queryKey: ["memory", "lookup", email] });
+      qc.invalidateQueries({ queryKey: ["customer"] });
+      qc.invalidateQueries({ queryKey: ["customers"] });
+    } catch (e) {
+      toast.err(errMsg(e));
+    } finally { setBusy(null); }
+  };
 
   const check = async (ch: Channel) => {
     setBusy(ch);
@@ -69,7 +100,8 @@ export function CustomerChannels({ email, whatsapp, compact }: { email: string; 
     } finally { setBusy(null); }
   };
 
-  const status = (ch: Channel): Result | undefined => res[ch] ?? (ch === "whatsapp" && wa ? { connected: true } : undefined);
+  const status = (ch: Channel): Result | undefined => res[ch] ?? (dropped[ch] ? undefined
+    : ch === "whatsapp" && wa ? { connected: true } : ch === "telegram" && tg ? { connected: true } : undefined);
   const digits = phone?.replace(/\D/g, "") ?? "";
   const shareOnWhatsApp = (link: string, ch: Channel) =>
     `https://wa.me/${digits}?text=${encodeURIComponent(`Hi! Tap this link to connect with us on ${LABEL[ch]} so we can send you updates: ${link}`)}`;
@@ -91,6 +123,11 @@ export function CustomerChannels({ email, whatsapp, compact }: { email: string; 
                 {r?.error && <p className="text-xs text-err">{r.error}</p>}
               </div>
               {!r?.connected && <Button size="sm" loading={busy === ch} onClick={() => check(ch)}>{r ? "Check again" : compact ? "Check" : "Check / connect"}</Button>}
+              {r?.connected && (
+                <Button size="sm" variant="ghost" loading={busy === ch} onClick={() => disconnect(ch)} aria-label={`Disconnect ${LABEL[ch]}`}>
+                  <Unlink className="size-3.5" /> {compact ? "" : "Disconnect"}
+                </Button>
+              )}
             </div>
             {r?.link && (
               <div className="mt-2.5 flex flex-wrap items-center gap-2">
