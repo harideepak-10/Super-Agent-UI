@@ -25,7 +25,7 @@ import Costs from "@/pages/governance/Costs";
 import Audit from "@/pages/governance/Audit";
 import Compliance from "@/pages/governance/Compliance";
 import QA from "@/pages/governance/QA";
-import { IntegrationSettings, NotificationSettings, ProfileSettings, SettingsLayout, TeamSettings } from "@/pages/settings/Settings";
+import { ApiKeySettings, IntegrationSettings, NotificationSettings, ProfileSettings, SettingsLayout, TeamSettings } from "@/pages/settings/Settings";
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const token = useAuth((s) => s.access);
@@ -81,6 +81,7 @@ export default function App() {
             <Route path="integrations" element={<IntegrationSettings />} />
             <Route path="team" element={<TeamSettings />} />
             <Route path="notifications" element={<NotificationSettings />} />
+            <Route path="api-keys" element={<ApiKeySettings />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Mail, HardDrive, Calendar, Slack, Send, MessageCircle, Github, NotebookPen, Plug, UserPlus, Trash2 } from "lucide-react";
+import { Mail, HardDrive, Calendar, Slack, Send, MessageCircle, Github, NotebookPen, Plug, UserPlus, Trash2, KeyRound, Copy } from "lucide-react";
 import { api, del, get, patch, post } from "@/api/client";
 import { asList, cn, errMsg, timeAgo } from "@/lib/utils";
 import { useAuth } from "@/store/auth";
@@ -17,6 +17,7 @@ export function SettingsLayout() {
     { to: "/settings/integrations", label: "Connected apps" },
     { to: "/settings/team", label: "Team" },
     { to: "/settings/notifications", label: "Notifications" },
+    { to: "/settings/api-keys", label: "API keys" },
   ];
   return (
     <div className="mx-auto max-w-5xl p-4 sm:p-6 lg:p-8">
@@ -362,5 +363,86 @@ export function NotificationSettings() {
         </div>
       ))}
     </Card>
+  );
+}
+
+
+/* ─────────────── API keys (n8n, Zapier, scripts) ─────────────── */
+const API_BASE = "https://super-agent-platform.onrender.com/api/v1";
+
+export function ApiKeySettings() {
+  const qc = useQueryClient();
+  const me = useMe();
+  const keys = useQuery({ queryKey: ["api-keys"], queryFn: () => get("/integrations/api-keys/") });
+  const [name, setName] = useState("");
+  const [fresh, setFresh] = useState<{ name: string; key: string } | null>(null);
+  const create = useMutation({
+    mutationFn: () => post("/integrations/api-keys/", { name }),
+    onSuccess: (d: any) => { setFresh({ name: d.name, key: d.key }); setName(""); qc.invalidateQueries({ queryKey: ["api-keys"] }); },
+    onError: (e) => toast.err(errMsg(e)),
+  });
+  const revoke = useMutation({
+    mutationFn: (id: string) => del(`/integrations/api-keys/${id}/`),
+    onSuccess: () => { toast.ok("Key revoked"); qc.invalidateQueries({ queryKey: ["api-keys"] }); },
+    onError: (e) => toast.err(errMsg(e)),
+  });
+  const copy = (t: string) => { navigator.clipboard.writeText(t); toast.ok("Copied"); };
+  const list = asList(keys.data);
+
+  return (
+    <div className="space-y-6">
+      <Card className="p-5">
+        <p className="text-sm font-semibold">Connect n8n, Zapier or your own scripts</p>
+        <p className="mt-1 text-sm text-muted">An API key lets another tool use the platform as you: run an agent, start a workflow and read the result. Messages an agent sends still wait for approval.</p>
+        <div className="mt-4 space-y-2 rounded-xl bg-surface-2 p-3 font-mono text-[11px] leading-relaxed">
+          <p><span className="text-muted">Header</span> X-API-Key: ska_…</p>
+          <p><span className="text-muted">Run an agent</span> POST {API_BASE}/tasks/create/ {"{"}"agent_id": "…", "prompt": "…", "wait": 60{"}"}</p>
+          <p><span className="text-muted">Start a workflow</span> POST {API_BASE}/workflows/&lt;id&gt;/run/ {"{"}"input": {"{"}…{"}"}, "wait": 60{"}"}</p>
+        </div>
+        <p className="mt-3 text-xs text-muted">In n8n: an HTTP Request node, Authentication → Generic → Header Auth (name <span className="font-mono">X-API-Key</span>). To send data the other way, add a Webhook node in n8n and ask the Workflow Agent to call its Production URL.</p>
+      </Card>
+
+      {me.canManage && (
+        <Card className="p-5">
+          <p className="mb-3 text-sm font-semibold">New API key</p>
+          <div className="flex flex-wrap gap-2">
+            <Input className="min-w-0 flex-1" placeholder='Name, e.g. "n8n"' value={name} onChange={(e) => setName(e.target.value)} aria-label="Key name" />
+            <Button variant="primary" disabled={!name.trim()} loading={create.isPending} onClick={() => create.mutate()}><KeyRound className="size-4" /> Create key</Button>
+          </div>
+        </Card>
+      )}
+
+      <Card>
+        <p className="border-b border-border px-5 py-3 text-sm font-medium">Keys</p>
+        {keys.isLoading ? <Loading /> : list.length === 0 ? (
+          <p className="px-5 py-8 text-center text-sm text-muted">No API keys yet.</p>
+        ) : (
+          <div className="divide-y divide-border">
+            {list.map((k: any) => (
+              <div key={k.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
+                <KeyRound className="size-4 text-muted" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">{k.name} <span className="font-mono text-xs text-muted">{k.prefix}…</span></p>
+                  <p className="text-xs text-muted">by {k.created_by_email} · {k.last_used_at ? `last used ${timeAgo(k.last_used_at)}` : "never used"}</p>
+                </div>
+                {me.canManage && (
+                  <Button size="sm" variant="ghost" loading={revoke.isPending && revoke.variables === k.id}
+                    onClick={() => { if (confirm(`Revoke "${k.name}"? Anything using it stops working at once.`)) revoke.mutate(k.id); }}
+                    aria-label={`Revoke ${k.name}`}><Trash2 className="size-3.5" /> Revoke</Button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      <Modal open={!!fresh} onClose={() => setFresh(null)} title={`API key "${fresh?.name ?? ""}"`}>
+        <p className="text-sm text-muted">Copy it now — it won't be shown again. Anyone with this key can act as you.</p>
+        <div className="mt-3 flex items-center gap-2">
+          <span className="min-w-0 flex-1 truncate rounded-lg bg-surface-2 px-3 py-2 font-mono text-xs">{fresh?.key}</span>
+          <Button size="sm" variant="primary" onClick={() => fresh && copy(fresh.key)}><Copy className="size-3.5" /> Copy</Button>
+        </div>
+      </Modal>
+    </div>
   );
 }
