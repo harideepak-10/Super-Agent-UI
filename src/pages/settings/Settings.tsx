@@ -94,8 +94,8 @@ const LOGOS: Record<string, string> = {
 };
 const PROVIDERS: Record<string, { icon: any; desc: string; auth?: string; color: string }> = {
   gmail: { icon: Mail, desc: "Read and send email with the Email Agent", auth: "/integrations/gmail/auth-url/", color: "text-red-400 bg-red-400/10" },
-  google_drive: { icon: HardDrive, desc: "Find, read and create documents", auth: "/integrations/drive/auth-url/", color: "text-emerald-400 bg-emerald-400/10" },
-  google_calendar: { icon: Calendar, desc: "Schedule meetings and find free slots", auth: "/integrations/calendar/auth-url/", color: "text-sky-400 bg-sky-400/10" },
+  google_drive: { icon: HardDrive, desc: "Find, read and create documents — plus Google Docs and Sheets", auth: "/integrations/drive/auth-url/", color: "text-emerald-400 bg-emerald-400/10" },
+  google_calendar: { icon: Calendar, desc: "Schedule meetings, find free slots and manage Google Tasks (reconnect once to allow Tasks)", auth: "/integrations/calendar/auth-url/", color: "text-sky-400 bg-sky-400/10" },
   slack: { icon: Slack, desc: "Post updates to channels", color: "text-fuchsia-400 bg-fuchsia-400/10" },
   notion: { icon: NotebookPen, desc: "Read and write Notion pages", color: "text-zinc-300 bg-zinc-400/10" },
   github: { icon: Github, desc: "Issues and pull requests", color: "text-zinc-300 bg-zinc-400/10" },
