@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Mail, HardDrive, Calendar, Slack, Send, MessageCircle, Github, NotebookPen, Plug, UserPlus, Trash2, KeyRound, Copy, Users, Link2, Unlink } from "lucide-react";
+import { Mail, HardDrive, Calendar, Slack, Send, MessageCircle, Github, NotebookPen, Plug, UserPlus, Trash2, KeyRound, Copy, Users, Link2, Unlink, Bot, MessageSquare } from "lucide-react";
 import { api, del, get, patch, post } from "@/api/client";
 import { asList, cn, errMsg, timeAgo } from "@/lib/utils";
 import { useAuth } from "@/store/auth";
 import { useMe } from "@/lib/useMe";
-import { Badge, Button, Card, Field, Input, Loading, PasswordInput, Modal, PageHeader, Select, StatusBadge, Table, Td, Toggle } from "@/components/ui";
+import { Badge, Button, Card, Field, Input, Loading, PasswordInput, Modal, PageHeader, Select, StatusBadge, Table, Td, Textarea, Toggle } from "@/components/ui";
 import { Avatar } from "@/components/Layout";
 import { CustomerChannels } from "@/components/CustomerChannels";
 import { toast } from "@/components/toast";
@@ -501,14 +501,20 @@ export function TelegramSettings() {
             {mine.isLoading ? <p className="text-xs text-muted">Checking…</p> : m.linked ? (
               <p className="text-xs text-muted">Linked{m.username ? ` as @${m.username}` : ""}{m.linked_at ? ` · ${timeAgo(m.linked_at)}` : ""}</p>
             ) : <p className="text-xs text-muted">Not linked — the bot won't answer you in groups until you link.</p>}
+            {m.linked && <p className="mt-1 text-xs text-muted">You can also message the bot one-to-one — no /ask needed. Send /new there to start a fresh conversation.</p>}
           </div>
           {m.linked ? (
-            <Button size="sm" variant="ghost" loading={unlink.isPending} onClick={() => unlink.mutate()}><Unlink className="size-3.5" /> Unlink</Button>
+            <>
+              {m.chat_url && <Button size="sm" variant="secondary" onClick={() => window.open(m.chat_url, "_blank", "noopener")}><MessageSquare className="size-3.5" /> Chat with the bot</Button>}
+              <Button size="sm" variant="ghost" loading={unlink.isPending} onClick={() => unlink.mutate()}><Unlink className="size-3.5" /> Unlink</Button>
+            </>
           ) : (
             <Button size="sm" variant="primary" loading={link.isPending} onClick={() => link.mutate()}><Link2 className="size-3.5" /> Link my Telegram</Button>
           )}
         </div>
       </Card>
+
+      <AutoReplyCard canManage={me.canManage} />
 
       <Card>
         <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-3">
@@ -542,5 +548,41 @@ export function TelegramSettings() {
         )}
       </Card>
     </div>
+  );
+}
+
+function AutoReplyCard({ canManage }: { canManage: boolean }) {
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["auto-reply"], queryFn: () => get("/integrations/customer-replies/") });
+  const [text, setText] = useState<string | null>(null);
+  const save = useMutation({
+    mutationFn: (body: any) => patch("/integrations/customer-replies/", body),
+    onSuccess: (d: any) => { qc.setQueryData(["auto-reply"], d); setText(null); toast.ok("Saved"); },
+    onError: (e) => toast.err(errMsg(e)),
+  });
+  const d: any = q.data ?? {};
+  const value = text ?? d.instructions ?? "";
+  return (
+    <Card className="p-5">
+      <div className="flex items-start gap-3">
+        <Bot className="mt-0.5 size-5 text-muted" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold">AI replies to customers</p>
+          <p className="mt-1 text-sm text-muted">When a connected customer writes to you on Telegram or WhatsApp, the Communication Agent drafts a reply. Nothing is sent until someone allowed to approve taps Approve — in the app, or right in your Telegram team group.</p>
+          {!q.isLoading && !d.has_communication_agent && <p className="mt-2 text-xs text-warn">Hire the Communication Agent first (Agents → Templates) — it writes the replies.</p>}
+        </div>
+        <Toggle aria-label="AI replies to customers" checked={!!d.enabled} disabled={!canManage || q.isLoading || save.isPending}
+          onChange={(v) => save.mutate({ enabled: v })} />
+      </div>
+      <div className="mt-4">
+        <Field label="What the AI should know (optional)">
+          <Textarea rows={3} maxLength={2000} disabled={!canManage} value={value} onChange={(e) => setText(e.target.value)}
+            placeholder="e.g. We're open 10am–7pm, Mon–Sat. Website projects start at ₹30,000. Never promise discounts or delivery dates." />
+        </Field>
+        {canManage && text !== null && text !== (d.instructions ?? "") && (
+          <div className="mt-2 flex justify-end"><Button size="sm" variant="primary" loading={save.isPending} onClick={() => save.mutate({ instructions: value })}>Save</Button></div>
+        )}
+      </div>
+    </Card>
   );
 }
