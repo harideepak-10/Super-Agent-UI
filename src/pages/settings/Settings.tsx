@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Mail, HardDrive, Calendar, Slack, Send, MessageCircle, Github, NotebookPen, Plug, UserPlus, Trash2, KeyRound, Copy } from "lucide-react";
+import { Mail, HardDrive, Calendar, Slack, Send, MessageCircle, Github, NotebookPen, Plug, UserPlus, Trash2, KeyRound, Copy, Users, Link2, Unlink } from "lucide-react";
 import { api, del, get, patch, post } from "@/api/client";
 import { asList, cn, errMsg, timeAgo } from "@/lib/utils";
 import { useAuth } from "@/store/auth";
@@ -17,6 +17,7 @@ export function SettingsLayout() {
     { to: "/settings/integrations", label: "Connected apps" },
     { to: "/settings/team", label: "Team" },
     { to: "/settings/notifications", label: "Notifications" },
+    { to: "/settings/telegram", label: "Telegram" },
     { to: "/settings/api-keys", label: "API keys" },
   ];
   return (
@@ -443,6 +444,103 @@ export function ApiKeySettings() {
           <Button size="sm" variant="primary" onClick={() => fresh && copy(fresh.key)}><Copy className="size-3.5" /> Copy</Button>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+/* ─────────────── Telegram (team groups) ─────────────── */
+export function TelegramSettings() {
+  const qc = useQueryClient();
+  const me = useMe();
+  const mine = useQuery({ queryKey: ["tg-me"], queryFn: () => get("/integrations/telegram/me/") });
+  const groups = useQuery({ queryKey: ["tg-groups"], queryFn: () => get("/integrations/telegram/groups/") });
+  const refresh = () => { qc.invalidateQueries({ queryKey: ["tg-me"] }); qc.invalidateQueries({ queryKey: ["tg-groups"] }); };
+  // the user comes back from Telegram to this tab → refresh the status
+  useEffect(() => { window.addEventListener("focus", refresh); return () => window.removeEventListener("focus", refresh); }, []);
+
+  const link = useMutation({
+    mutationFn: () => post("/integrations/telegram/me/", {}),
+    onSuccess: (d: any) => { window.open(d.link_url, "_blank", "noopener"); toast.ok("Press Start in Telegram to finish linking"); },
+    onError: (e) => toast.err(errMsg(e)),
+  });
+  const unlink = useMutation({
+    mutationFn: () => del("/integrations/telegram/me/"),
+    onSuccess: () => { toast.ok("Telegram unlinked"); refresh(); },
+    onError: (e) => toast.err(errMsg(e)),
+  });
+  const addGroup = useMutation({
+    mutationFn: () => post("/integrations/telegram/groups/", {}),
+    onSuccess: (d: any) => { if (d.add_url) window.open(d.add_url, "_blank", "noopener"); refresh(); },
+    onError: (e) => toast.err(errMsg(e)),
+  });
+  const remove = useMutation({
+    mutationFn: (id: string) => del(`/integrations/telegram/groups/${id}/`),
+    onSuccess: () => { toast.ok("Group disconnected"); refresh(); },
+    onError: (e) => toast.err(errMsg(e)),
+  });
+  const m: any = mine.data ?? {};
+  const list = asList(groups.data);
+
+  return (
+    <div className="space-y-6">
+      <Card className="p-5">
+        <p className="text-sm font-semibold">Use your agents from a Telegram group</p>
+        <p className="mt-1 text-sm text-muted">Link your Telegram, add the bot to a team group, then ask it there. It runs as the person who asked, with their access, and messages it wants to send still need approval — approvers can tap Approve or Reject right in the group.</p>
+        <div className="mt-4 space-y-1.5 rounded-xl bg-surface-2 p-3 text-xs leading-relaxed">
+          <p><span className="font-mono">/ask</span> draft a follow-up to Ravi about the quote</p>
+          <p><span className="font-mono">@yourbot</span> what meetings do I have tomorrow? <span className="text-muted">(needs privacy mode off in BotFather, or the bot as group admin)</span></p>
+          <p className="text-muted">Reply to one of the bot's messages to continue that conversation.</p>
+        </div>
+      </Card>
+
+      <Card className="p-5">
+        <div className="flex flex-wrap items-center gap-3">
+          <Send className="size-5 text-muted" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold">My Telegram</p>
+            {mine.isLoading ? <p className="text-xs text-muted">Checking…</p> : m.linked ? (
+              <p className="text-xs text-muted">Linked{m.username ? ` as @${m.username}` : ""}{m.linked_at ? ` · ${timeAgo(m.linked_at)}` : ""}</p>
+            ) : <p className="text-xs text-muted">Not linked — the bot won't answer you in groups until you link.</p>}
+          </div>
+          {m.linked ? (
+            <Button size="sm" variant="ghost" loading={unlink.isPending} onClick={() => unlink.mutate()}><Unlink className="size-3.5" /> Unlink</Button>
+          ) : (
+            <Button size="sm" variant="primary" loading={link.isPending} onClick={() => link.mutate()}><Link2 className="size-3.5" /> Link my Telegram</Button>
+          )}
+        </div>
+      </Card>
+
+      <Card>
+        <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-3">
+          <p className="flex-1 text-sm font-medium">Groups</p>
+          {me.canManage && (
+            <Button size="sm" variant="primary" loading={addGroup.isPending} onClick={() => addGroup.mutate()}><UserPlus className="size-3.5" /> Add bot to a group</Button>
+          )}
+        </div>
+        {groups.isLoading ? <Loading /> : list.length === 0 ? (
+          <p className="px-5 py-8 text-center text-sm text-muted">No groups yet.{me.canManage ? " Click “Add bot to a group” and pick your team group in Telegram." : " Ask your Admin or a Manager to add one."}</p>
+        ) : (
+          <div className="divide-y divide-border">
+            {list.map((g: any) => (
+              <div key={g.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
+                <Users className="size-4 text-muted" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">{g.title || "Waiting for a group…"}</p>
+                  <p className="text-xs text-muted">{g.connected ? `Connected ${g.connected_at ? timeAgo(g.connected_at) : ""}` : "Open the link and choose a group to finish"}</p>
+                </div>
+                {g.connected ? <Badge tone="ok">Connected</Badge> : g.add_url && (
+                  <Button size="sm" variant="secondary" onClick={() => window.open(g.add_url, "_blank", "noopener")}>Open link</Button>
+                )}
+                {me.canManage && (
+                  <Button size="sm" variant="ghost" loading={remove.isPending && remove.variables === g.id}
+                    onClick={() => { if (!g.connected || confirm(`Disconnect "${g.title}"? The bot will leave the group.`)) remove.mutate(g.id); }}
+                    aria-label={`Disconnect ${g.title || "group"}`}><Trash2 className="size-3.5" /> {g.connected ? "Disconnect" : "Cancel"}</Button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }
