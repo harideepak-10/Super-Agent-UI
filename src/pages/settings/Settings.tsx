@@ -354,16 +354,54 @@ export function NotificationSettings() {
     onMutate: (body) => qc.setQueryData(["notification-settings"], (o: any) => ({ ...o, ...body })),
     onError: (e) => { toast.err(errMsg(e)); qc.invalidateQueries({ queryKey: ["notification-settings"] }); },
   });
+  const tg = useQuery({ queryKey: ["tg-me"], queryFn: () => get("/integrations/telegram/me/") });
+  const [preview, setPreview] = useState<string | null>(null);
+  const sendNow = useMutation({
+    mutationFn: () => post("/notifications/daily-nudge/send-now/", {}),
+    onSuccess: (d: any) => { setPreview(d.text); toast.ok(d.detail || "Sent"); },
+    onError: (e: any) => { const d = e?.response?.data; if (d?.text) setPreview(d.text); toast.err(errMsg(e)); },
+  });
   if (q.isLoading) return <Loading />;
+  const d: any = q.data ?? {};
+  const linked = !!(tg.data as any)?.linked;
   return (
-    <Card className="divide-y divide-border">
-      {NOTIF.map(([k, label, desc]) => (
-        <div key={k} className="flex items-center gap-4 px-5 py-4">
-          <div className="flex-1"><p className="text-sm font-medium">{label}</p><p className="text-xs text-muted">{desc}</p></div>
-          <Toggle aria-label={label} checked={!!q.data?.[k]} onChange={(v) => save.mutate({ [k]: v })} />
+    <div className="space-y-6">
+      <Card className="p-5">
+        <div className="flex items-start gap-3">
+          <Send className="mt-0.5 size-5 text-muted" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold">Daily summary on Telegram</p>
+            <p className="mt-1 text-sm text-muted">Every morning the bot messages you what needs attention: today's meetings, customers waiting for a reply, follow-ups due, approvals waiting for you and deals closing soon. Nothing to report → no message. Reply to it to act right away.</p>
+            {!tg.isLoading && !linked && <p className="mt-2 text-xs text-warn">Link your Telegram first in Settings → Telegram — the summary is sent there.</p>}
+          </div>
+          <Toggle aria-label="Daily summary" checked={!!d.daily_nudge_enabled} onChange={(v) => save.mutate({ daily_nudge_enabled: v })} />
         </div>
-      ))}
-    </Card>
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          <Field label="Time (IST)">
+            <Input type="time" className="w-32" value={(d.daily_nudge_time || "09:00").slice(0, 5)} disabled={!d.daily_nudge_enabled}
+              onChange={(e) => e.target.value && save.mutate({ daily_nudge_time: e.target.value })} />
+          </Field>
+          <Field label="Days">
+            <Select value={d.daily_nudge_days || "mon_sat"} disabled={!d.daily_nudge_enabled} onChange={(e) => save.mutate({ daily_nudge_days: e.target.value })}>
+              <option value="mon_sat">Monday to Saturday</option>
+              <option value="mon_fri">Monday to Friday</option>
+              <option value="every_day">Every day</option>
+            </Select>
+          </Field>
+          <Button size="sm" variant="secondary" loading={sendNow.isPending} onClick={() => sendNow.mutate()}>Send me one now</Button>
+        </div>
+        {d.last_nudge_on && <p className="mt-2 text-xs text-muted">Last sent {d.last_nudge_on}</p>}
+        {preview && <pre className="mt-3 whitespace-pre-wrap rounded-xl bg-surface-2 p-3 font-sans text-xs leading-relaxed">{preview}</pre>}
+      </Card>
+      <Card className="divide-y divide-border">
+        {NOTIF.map(([k, label, desc]) => (
+          <div key={k} className="flex items-center gap-4 px-5 py-4">
+            <div className="flex-1"><p className="text-sm font-medium">{label}</p><p className="text-xs text-muted">{desc}</p></div>
+            <Toggle aria-label={label} checked={!!q.data?.[k]} onChange={(v) => save.mutate({ [k]: v })} />
+          </div>
+        ))}
+      </Card>
+    </div>
   );
 }
 
