@@ -231,6 +231,7 @@ export function TeamSettings() {
   const invite = useMutation({ mutationFn: () => post("/team/invite/", form), onSuccess: (d: any) => { setOpen(false); setForm(blank); setCreated(d); inv(); }, onError: (e) => toast.err(errMsg(e)) });
   const update = useMutation({ mutationFn: ({ id, body }: { id: string; body: any }) => patch(`/team/members/${id}/role/`, body), onSuccess: () => { toast.ok("Updated"); inv(); }, onError: (e) => toast.err(errMsg(e)) });
   const remove = useMutation({ mutationFn: (id: string) => del(`/team/members/${id}/remove/`), onSuccess: () => { toast.ok("Member removed"); inv(); }, onError: (e) => toast.err(errMsg(e)) });
+  const resetPw = useMutation({ mutationFn: (id: string) => post(`/team/members/${id}/reset-password/`, {}), onSuccess: (d: any) => setCreated(d), onError: (e) => toast.err(errMsg(e)) });
   const copy = (t: string) => { navigator.clipboard.writeText(t); toast.ok("Copied"); };
   const list = asList(members.data);
   const managers = list.filter((m: any) => m.role === "manager");
@@ -254,7 +255,7 @@ export function TeamSettings() {
             <Table head={["Member", "Role", "Reports to", "Joined", ""]}>
               {list.map((m: any) => (
                 <tr key={m.id}>
-                  <Td><div className="flex items-center gap-3"><Avatar name={m.name || m.email} src={m.avatar_url} /><div><p className="font-medium">{m.name || "—"} {m.email === me?.email && <span className="text-xs text-accent">(you)</span>}</p><p className="text-xs text-muted">{m.email}</p></div></div></Td>
+                  <Td><div className="flex items-center gap-3"><Avatar name={m.name || m.email} src={m.avatar_url} /><div><p className="font-medium">{m.name || "—"} {m.email === me?.email && <span className="text-xs text-accent">(you)</span>}</p><p className="text-xs text-muted">{m.email}</p>{m.must_change_password && <Badge tone="warn" className="mt-1">Not signed in yet</Badge>}</div></div></Td>
                   <Td>
                     {who.isAdmin && m.role !== "owner" ? (
                       <Select value={m.role} onChange={(e) => update.mutate({ id: m.id, body: { role: e.target.value } })} className="h-8 text-xs"><option value="manager">Manager</option><option value="member">Member</option></Select>
@@ -269,7 +270,10 @@ export function TeamSettings() {
                     ) : <span className="text-xs text-muted">{m.manager_email ?? "—"}</span>}
                   </Td>
                   <Td className="text-muted">{timeAgo(m.joined_at)}</Td>
-                  <Td className="text-right">{canRemove(m) && <Button variant="ghost" size="icon" aria-label={`Remove ${m.name || m.email} from the team`} title="Remove from team"
+                  <Td className="text-right">{canRemove(m) && m.must_change_password && <Button variant="ghost" size="icon" aria-label={`New temporary password for ${m.name || m.email}`} title="New temporary password"
+                    loading={resetPw.isPending && resetPw.variables === m.id}
+                    onClick={() => { if (confirm(`Make a new temporary password for ${m.name || m.email}? The old one stops working.`)) resetPw.mutate(m.id); }}><KeyRound className="size-4" /></Button>}
+                    {canRemove(m) && <Button variant="ghost" size="icon" aria-label={`Remove ${m.name || m.email} from the team`} title="Remove from team"
                     onClick={() => { if (confirm(`Remove ${m.name || m.email} from the team?`)) remove.mutate(m.id); }}><Trash2 className="size-4" /></Button>}</Td>
                 </tr>
               ))}
@@ -291,7 +295,7 @@ export function TeamSettings() {
           <Button variant="primary" className="w-full" disabled={!form.email.trim() || !form.name.trim()} loading={invite.isPending} onClick={() => invite.mutate()}>Create account</Button>
         </div>
       </Modal>
-      <Modal open={!!created} onClose={() => setCreated(null)} title={`${created?.name ?? ""} can sign in now`}>
+      <Modal open={!!created} onClose={() => setCreated(null)} title={`${created?.name || created?.email || ""} can sign in now`}>
         <div className="space-y-3 text-sm">
           <p className="text-muted">Share these with them — the password is shown only once. They'll be asked to set their own password when they first sign in.</p>
           <div className="space-y-2 rounded-xl bg-surface-2 p-3">
