@@ -7,6 +7,7 @@ import { Toaster } from "@/components/toast";
 import { Splash } from "@/components/Splash";
 import { ServerPill } from "@/components/ServerPill";
 import Login from "@/pages/auth/Login";
+import { SetPassword } from "@/pages/auth/SetPassword";
 import Register from "@/pages/auth/Register";
 import { ForgotPassword, ResetPassword } from "@/pages/auth/ForgotPassword";
 import Home from "@/pages/Home";
@@ -30,7 +31,9 @@ import { ApiKeySettings, IntegrationSettings, NotificationSettings, ProfileSetti
 function RequireAuth({ children }: { children: JSX.Element }) {
   const token = useAuth((s) => s.access);
   const loc = useLocation();
+  const mustChange = useAuth((s) => !!s.user?.must_change_password);
   if (!token) return <Navigate to={hasOnboarded() ? "/login" : "/welcome"} replace state={{ from: loc.pathname + loc.search }} />;
+  if (mustChange) return <SetPassword />;          // created with a temporary password → choose your own first
   return children;
 }
 

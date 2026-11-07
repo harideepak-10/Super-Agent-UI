@@ -223,15 +223,15 @@ export function TeamSettings() {
   const who = useMe();
   const [tab, setTab] = useState<"members" | "activity">("members");
   const members = useQuery({ queryKey: ["team", "members"], queryFn: () => get("/team/members/") });
-  const invites = useQuery({ queryKey: ["team", "invites"], queryFn: () => get("/team/invites/") });
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ email: "", role: "member" });
+  const blank = { name: "", email: "", role: "member" };
+  const [form, setForm] = useState(blank);
+  const [created, setCreated] = useState<{ name: string; email: string; temp_password: string } | null>(null);
   const inv = () => qc.invalidateQueries({ queryKey: ["team"] });
-  const invite = useMutation({ mutationFn: () => post("/team/invite/", form), onSuccess: () => { toast.ok("Invite sent"); setOpen(false); setForm({ email: "", role: "member" }); inv(); }, onError: (e) => toast.err(errMsg(e)) });
+  const invite = useMutation({ mutationFn: () => post("/team/invite/", form), onSuccess: (d: any) => { setOpen(false); setForm(blank); setCreated(d); inv(); }, onError: (e) => toast.err(errMsg(e)) });
   const update = useMutation({ mutationFn: ({ id, body }: { id: string; body: any }) => patch(`/team/members/${id}/role/`, body), onSuccess: () => { toast.ok("Updated"); inv(); }, onError: (e) => toast.err(errMsg(e)) });
   const remove = useMutation({ mutationFn: (id: string) => del(`/team/members/${id}/remove/`), onSuccess: () => { toast.ok("Member removed"); inv(); }, onError: (e) => toast.err(errMsg(e)) });
-  const respond = useMutation({ mutationFn: ({ id, accept }: { id: string; accept: boolean }) => post(`/team/invites/${id}/${accept ? "accept" : "reject"}/`), onSuccess: inv, onError: (e) => toast.err(errMsg(e)) });
-  const pending = asList(invites.data).filter((i: any) => i.status === "pending");
+  const copy = (t: string) => { navigator.clipboard.writeText(t); toast.ok("Copied"); };
   const list = asList(members.data);
   const managers = list.filter((m: any) => m.role === "manager");
   const canInvite = who.canManage;
@@ -240,25 +240,13 @@ export function TeamSettings() {
   return (
     <div className="space-y-6">
       <Card className="p-4 text-sm text-muted">
-        <p><span className="font-semibold text-fg">Admin</span> owns the workspace and assigns Managers or Members. <span className="font-semibold text-fg">Managers</span> invite Members, and see and approve only their Members' tasks. <span className="font-semibold text-fg">Members</span> can't approve their own tasks.</p>
+        <p><span className="font-semibold text-fg">Admin</span> owns the workspace and assigns Managers or Members. <span className="font-semibold text-fg">Managers</span> add Members, and see and approve only their Members' tasks. <span className="font-semibold text-fg">Members</span> can't approve their own tasks.</p>
       </Card>
-      {pending.length > 0 && (
-        <Card className="border-accent/40 p-5">
-          <p className="mb-3 text-sm font-medium">Invitations for you</p>
-          {pending.map((i: any) => (
-            <div key={i.id} className="flex items-center gap-3 py-2">
-              <p className="flex-1 text-sm">{i.invited_by_email} invited you as <Badge tone="accent">{ROLE_NAME[i.role] ?? i.role}</Badge></p>
-              <Button size="sm" variant="success" onClick={() => respond.mutate({ id: i.id, accept: true })}>Accept</Button>
-              <Button size="sm" variant="ghost" onClick={() => respond.mutate({ id: i.id, accept: false })}>Decline</Button>
-            </div>
-          ))}
-        </Card>
-      )}
       <div className="flex items-center gap-2">
         {(["members", "activity"] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)} className={cn("rounded-full border px-3.5 py-1.5 text-xs font-medium capitalize cursor-pointer", tab === t ? "border-accent bg-accent text-white" : "border-border bg-surface text-muted")}>{t}</button>
         ))}
-        {canInvite && <Button size="sm" variant="primary" className="ml-auto" onClick={() => setOpen(true)}><UserPlus className="size-3.5" /> Invite</Button>}
+        {canInvite && <Button size="sm" variant="primary" className="ml-auto" onClick={() => setOpen(true)}><UserPlus className="size-3.5" /> Add member</Button>}
       </div>
       {tab === "members" ? (
         <Card>
@@ -289,16 +277,29 @@ export function TeamSettings() {
           )}
         </Card>
       ) : <TeamActivity />}
-      <Modal open={open} onClose={() => setOpen(false)} title="Invite a teammate">
+      <Modal open={open} onClose={() => setOpen(false)} title="Add a team member">
         <div className="space-y-4">
-          <Field label="Email"><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
-          <Field label="Role" hint={who.isManager ? "Managers can invite Members, who are assigned to you." : undefined}>
+          <p className="text-sm text-muted">Creates their account with a temporary password. No email is sent — you share the password with them, and they choose their own at first sign-in.</p>
+          <Field label="Name"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Jane Doe" /></Field>
+          <Field label="Email"><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="jane@example.com" /></Field>
+          <Field label="Role" hint={who.isManager ? "Managers can add Members, who are assigned to you." : undefined}>
             <Select className="w-full" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
               {who.isAdmin && <option value="manager">Manager</option>}
               <option value="member">Member</option>
             </Select>
           </Field>
-          <Button variant="primary" className="w-full" disabled={!form.email} loading={invite.isPending} onClick={() => invite.mutate()}>Send invite</Button>
+          <Button variant="primary" className="w-full" disabled={!form.email.trim() || !form.name.trim()} loading={invite.isPending} onClick={() => invite.mutate()}>Create account</Button>
+        </div>
+      </Modal>
+      <Modal open={!!created} onClose={() => setCreated(null)} title={`${created?.name ?? ""} can sign in now`}>
+        <div className="space-y-3 text-sm">
+          <p className="text-muted">Share these with them — the password is shown only once. They'll be asked to set their own password when they first sign in.</p>
+          <div className="space-y-2 rounded-xl bg-surface-2 p-3">
+            <div className="flex items-center gap-2"><span className="w-20 text-xs text-muted">Email</span><span className="min-w-0 flex-1 truncate font-mono text-xs">{created?.email}</span></div>
+            <div className="flex items-center gap-2"><span className="w-20 text-xs text-muted">Password</span><span className="min-w-0 flex-1 truncate font-mono text-xs">{created?.temp_password}</span>
+              <Button size="sm" variant="primary" onClick={() => created && copy(created.temp_password)}><Copy className="size-3.5" /> Copy</Button></div>
+          </div>
+          <Button variant="secondary" className="w-full" onClick={() => created && copy(`Email: ${created.email}\nTemporary password: ${created.temp_password}\nSign in at ${window.location.origin}/login and set your own password.`)}>Copy sign-in details</Button>
         </div>
       </Modal>
     </div>

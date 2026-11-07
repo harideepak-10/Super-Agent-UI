@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export type User = { id: string; email: string; name?: string; avatar_url?: string | null };
+export type User = { id: string; email: string; name?: string; avatar_url?: string | null; must_change_password?: boolean };
 
 type AuthState = {
   user: User | null;
