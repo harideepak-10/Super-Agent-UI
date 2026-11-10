@@ -14,8 +14,9 @@ export function AuthShell({ title, subtitle, children, footer }: { title: string
           <img src="/logo.svg" className="size-12 shadow-[0_0_50px_-10px_#1a6fff]" alt="" />
           <span className="text-xs font-bold tracking-[0.3em] text-white/90">SUPER AGENT</span>
         </div>
-        {/* card is always light, like the Flutter auth sheet */}
-        <div className="rounded-3xl border border-white/10 bg-white p-6 text-[#1c1e21] shadow-[0_30px_80px_-20px_rgba(0,0,0,.6)] sm:p-8 [--bg:#eef1f6] [--surface:#fff] [--surface-2:#f4f6fa] [--border:#e3e7ee] [--fg:#1c1e21] [--muted:#6b7280]">
+        {/* card is always light, like the Flutter auth sheet. The --color-* tokens are set too: they're resolved
+            once at the page root, so in dark mode the inputs would otherwise get dark boxes with dark text. */}
+        <div className="auth-card rounded-3xl border border-white/10 bg-white p-6 text-[#1c1e21] shadow-[0_30px_80px_-20px_rgba(0,0,0,.6)] [color-scheme:light] sm:p-8">
           <div className="mb-6 text-center">
             <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
             {subtitle && <p className="mt-1.5 text-sm text-[#6b7280]">{subtitle}</p>}

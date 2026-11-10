@@ -112,3 +112,12 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .intro-logo, .intro-wave, .intro-letter, .intro-tag, .intro-chip, .intro-orbit, .intro-counter, .intro-bar, .blob, .float-y, .slide-in, .pulse-dot { animation: none !important; }
 }
+
+/* Auth card (login, sign-up, reset, set password) is always light, even in dark mode */
+.auth-card {
+  --bg: #eef1f6; --surface: #fff; --surface-2: #f4f6fa; --border: #d5dbe5; --fg: #1c1e21; --muted: #6b7280;
+  --color-bg: #eef1f6; --color-surface: #fff; --color-surface-2: #f4f6fa; --color-border: #d5dbe5;
+  --color-fg: #1c1e21; --color-muted: #6b7280;
+}
+.auth-card input { color: #1c1e21; }
+.auth-card input::placeholder { color: #9aa1ad; }

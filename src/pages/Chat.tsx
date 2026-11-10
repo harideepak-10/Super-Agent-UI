@@ -206,7 +206,7 @@ export default function Chat() {
   useEffect(() => {
     const sc = scroller.current, ct = content.current;
     if (!sc || !ct) return;
-    const onScroll = () => { pinned.current = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 120; };
+    const onScroll = () => { pinned.current = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 200; };
     const ro = new ResizeObserver(() => { if (pinned.current) sc.scrollTop = sc.scrollHeight; });
     sc.addEventListener("scroll", onScroll);
     ro.observe(ct);
@@ -239,6 +239,7 @@ export default function Chat() {
         setAgentId(t.handed_off_to.id);
       }
       if (!v.answer) { setDraft(""); attach.clear(); }
+      pinned.current = true;                               // you just sent something → follow the conversation
       setNotice(null);
       qc.setQueryData<Task[]>(["tasks"], (old) => [t, ...(old ?? [])]);
       qc.invalidateQueries({ queryKey: ["tasks"] });
@@ -254,6 +255,14 @@ export default function Chat() {
   const submit = () => { const p = draft.trim(); if ((p || attach.items.length) && !send.isPending) send.mutate({ prompt: p }); };
   const last = turns[turns.length - 1];
   const lastId = last?.id;
+  // A new reply (or one finishing / asking a question) → show it, unless the user scrolled up to read.
+  // The size observer above can miss it (live: the CRM Agent's answer landed below the screen).
+  useEffect(() => {
+    const sc = scroller.current;
+    if (!sc || !pinned.current) return;
+    const id = requestAnimationFrame(() => { sc.scrollTop = sc.scrollHeight; });
+    return () => cancelAnimationFrame(id);
+  }, [turns.length, lastId, last?.status, last?.result?.length]);
   // an agent is waiting for an answer → a typed reply goes to that agent (the backend matches the question by agent)
   useEffect(() => {
     if (last?.status === "needs_input" && last.agent !== undefined) setAgentId(last.agent ?? "");
