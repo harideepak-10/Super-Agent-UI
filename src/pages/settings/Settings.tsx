@@ -575,10 +575,10 @@ export function TelegramSettings() {
                 <Users className="size-4 text-muted" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">{g.title || "Waiting for a group…"}</p>
-                  <p className="text-xs text-muted">{g.connected ? `Connected ${g.connected_at ? timeAgo(g.connected_at) : ""}` : "Open the link and choose a group to finish"}</p>
+                  <p className="text-xs text-muted">{g.connected ? `Connected ${g.connected_at ? timeAgo(g.connected_at) : ""}` : g.link_expired ? "The link expired (they work for 1 hour) — make a new one" : "Open the link and choose a group to finish"}</p>
                 </div>
-                {g.connected ? <Badge tone="ok">Connected</Badge> : g.add_url && (
-                  <Button size="sm" variant="secondary" onClick={() => window.open(g.add_url, "_blank", "noopener")}>Open link</Button>
+                {g.connected ? <Badge tone="ok">Connected</Badge> : me.canManage && (
+                  <Button size="sm" variant="secondary" loading={addGroup.isPending} onClick={() => addGroup.mutate()}>{g.link_expired ? "New link" : "Open link"}</Button>
                 )}
                 {me.canManage && (
                   <Button size="sm" variant="ghost" loading={remove.isPending && remove.variables === g.id}
