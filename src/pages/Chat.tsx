@@ -161,7 +161,7 @@ function TaskTurn({ taskId, initial, isLast, onAnswer, answering }: { taskId: st
 function guessType(name?: string | null) {
   const n = (name ?? "").toLowerCase();
   if (!n || n === "default assistant") return "default";
-  for (const t of ["email", "calendar", "document", "finance", "compliance", "qa", "research", "workflow", "communication"]) if (n.includes(t)) return t;
+  for (const t of ["email", "calendar", "document", "finance", "compliance", "qa", "research", "workflow", "communication", "browser"]) if (n.includes(t)) return t;
   return "custom";
 }
 

@@ -1,4 +1,4 @@
-import { Handshake, Bot, Sparkles, Mail, Calendar, FileText, GitBranch, Search, Wallet, ShieldCheck, ListChecks, Workflow, MessageSquare, BarChart3 } from "lucide-react";
+import { Handshake, Bot, Sparkles, Mail, Calendar, FileText, GitBranch, Search, Wallet, ShieldCheck, ListChecks, Workflow, MessageSquare, BarChart3, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const MAP: Record<string, [any, string]> = {
@@ -15,6 +15,7 @@ const MAP: Record<string, [any, string]> = {
   communication: [MessageSquare, "text-teal-400 bg-teal-400/10"],
   reporting: [BarChart3, "text-indigo-400 bg-indigo-400/10"],
   crm: [Handshake, "text-pink-500 bg-pink-500/10"],
+  browser: [Globe, "text-sky-500 bg-sky-500/10"],
 };
 
 export function AgentIcon({ type, className, size = "md" }: { type?: string; className?: string; size?: "sm" | "md" | "lg" }) {
